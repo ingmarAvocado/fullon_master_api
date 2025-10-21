@@ -13,7 +13,7 @@ uvicorn = {extras = ["standard"], version = "^0.24.0"}
 pyjwt = "^2.8.0"
 python-dotenv = "^1.0.0"
 pydantic-settings = "^2.0.0"
-websockets = "^12.0"
+websockets = "^15.0"
 
 # Fullon core libraries (REQUIRED - used directly)
 fullon-log = {git = "ssh://git@github.com/ingmarAvocado/fullon_log.git", branch = "main"}

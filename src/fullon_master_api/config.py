@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     api_description: str = "Unified API Gateway for Fullon Trading Platform"
 
     # JWT Authentication
-    jwt_secret_key: str
+    jwt_secret_key: str = "dev-secret-key-change-in-production"  # Override in .env for production!
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60
 
