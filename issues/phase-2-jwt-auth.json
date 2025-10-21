@@ -1,0 +1,369 @@
+{
+  "phase": 2,
+  "name": "JWT Authentication",
+  "milestone": "Phase 2: JWT Authentication",
+  "labels": ["phase-2-jwt"],
+  "issues": [
+    {
+      "number": 1,
+      "title": "[Phase 2] Setup auth module structure",
+      "type": "baseline",
+      "labels": ["phase-2-jwt", "baseline", "auth"],
+      "example_file": null,
+      "example_lines": null,
+      "test_file": "tests/unit/test_auth_structure.py",
+      "test_function": "test_auth_modules_exist",
+      "description": "Create the foundational auth module structure with all required files.",
+      "implementation_guidance": [
+        "Create directory: src/fullon_master_api/auth/",
+        "Create file: src/fullon_master_api/auth/__init__.py",
+        "Create file: src/fullon_master_api/auth/jwt.py",
+        "Create file: src/fullon_master_api/auth/middleware.py",
+        "Create file: src/fullon_master_api/auth/dependencies.py",
+        "Add basic imports to __init__.py"
+      ],
+      "acceptance_criteria": [
+        "All auth module files exist",
+        "Modules can be imported without errors",
+        "Test test_auth_modules_exist passes"
+      ],
+      "depends_on": [],
+      "blocks": [2, 5, 10, 11]
+    },
+    {
+      "number": 2,
+      "title": "[Phase 2] Implement JWTHandler.generate_token()",
+      "type": "function",
+      "labels": ["phase-2-jwt", "auth", "critical"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "69-75",
+      "test_file": "tests/unit/test_jwt.py",
+      "test_function": "test_generate_token",
+      "description": "Implement generate_token() method to create JWT access tokens.",
+      "expected_behavior": {
+        "access_token": "eyJhbGc...",
+        "token_type": "bearer",
+        "expires_in": 3600
+      },
+      "implementation_guidance": [
+        "Create JWTHandler class in src/fullon_master_api/auth/jwt.py",
+        "Implement generate_token(user_id: int, username: str, email: str = None) -> str",
+        "Use PyJWT library (import jwt)",
+        "Token payload: {user_id, username, email, exp}",
+        "Use settings.jwt_secret_key and settings.jwt_algorithm",
+        "Set expiration: datetime.utcnow() + timedelta(minutes=settings.jwt_expiration_minutes)"
+      ],
+      "acceptance_criteria": [
+        "Test test_generate_token passes",
+        "Generated token is valid JWT format",
+        "Token can be decoded with PyJWT",
+        "Token contains user_id, username, exp claims",
+        "Expiration is set correctly from config"
+      ],
+      "depends_on": [1],
+      "blocks": [3, 8]
+    },
+    {
+      "number": 3,
+      "title": "[Phase 2] Implement JWTHandler.decode_token()",
+      "type": "function",
+      "labels": ["phase-2-jwt", "auth"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "106-143",
+      "test_file": "tests/unit/test_jwt.py",
+      "test_function": "test_decode_token",
+      "description": "Implement decode_token() method to extract claims from JWT.",
+      "implementation_guidance": [
+        "Add decode_token(token: str) -> dict method to JWTHandler",
+        "Use jwt.decode() with settings.jwt_secret_key",
+        "Return decoded payload dictionary",
+        "Handle invalid tokens with JWTError exception"
+      ],
+      "acceptance_criteria": [
+        "Test test_decode_token passes",
+        "Successfully decodes valid tokens",
+        "Returns dict with user_id, username, exp",
+        "Raises JWTError for invalid tokens"
+      ],
+      "depends_on": [2],
+      "blocks": [4]
+    },
+    {
+      "number": 4,
+      "title": "[Phase 2] Implement JWTHandler.verify_token()",
+      "type": "function",
+      "labels": ["phase-2-jwt", "auth"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "106-143",
+      "test_file": "tests/unit/test_jwt.py",
+      "test_function": "test_verify_token",
+      "description": "Implement verify_token() to validate token signature and expiration.",
+      "implementation_guidance": [
+        "Add verify_token(token: str) -> Optional[dict] method",
+        "Call decode_token() internally",
+        "Catch ExpiredSignatureError and return None",
+        "Catch JWTError and return None",
+        "Return decoded payload if valid"
+      ],
+      "acceptance_criteria": [
+        "Test test_verify_token passes",
+        "Returns None for expired tokens",
+        "Returns None for invalid tokens",
+        "Returns payload dict for valid tokens"
+      ],
+      "depends_on": [3],
+      "blocks": [9, 10, 11]
+    },
+    {
+      "number": 5,
+      "title": "[Phase 2] Implement hash_password() utility",
+      "type": "function",
+      "labels": ["phase-2-jwt", "auth"],
+      "example_file": null,
+      "example_lines": null,
+      "test_file": "tests/unit/test_jwt.py",
+      "test_function": "test_hash_password",
+      "description": "Implement password hashing using bcrypt.",
+      "implementation_guidance": [
+        "Add hash_password(password: str) -> str function to jwt.py",
+        "Use bcrypt library (from passlib.context import CryptContext)",
+        "Create CryptContext with bcrypt scheme",
+        "Return hashed password string"
+      ],
+      "acceptance_criteria": [
+        "Test test_hash_password passes",
+        "Returns bcrypt hash string",
+        "Hash is different each time (salt)",
+        "Hash format is valid bcrypt"
+      ],
+      "depends_on": [1],
+      "blocks": [6]
+    },
+    {
+      "number": 6,
+      "title": "[Phase 2] Implement verify_password() utility",
+      "type": "function",
+      "labels": ["phase-2-jwt", "auth"],
+      "example_file": null,
+      "example_lines": null,
+      "test_file": "tests/unit/test_jwt.py",
+      "test_function": "test_verify_password",
+      "description": "Implement password verification against hash.",
+      "implementation_guidance": [
+        "Add verify_password(plain_password: str, hashed_password: str) -> bool",
+        "Use same CryptContext as hash_password",
+        "Return True if password matches hash"
+      ],
+      "acceptance_criteria": [
+        "Test test_verify_password passes",
+        "Returns True for matching password",
+        "Returns False for non-matching password"
+      ],
+      "depends_on": [5],
+      "blocks": [7]
+    },
+    {
+      "number": 7,
+      "title": "[Phase 2] Implement authenticate_user() with DB query",
+      "type": "function",
+      "labels": ["phase-2-jwt", "auth", "database"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "38-103",
+      "test_file": "tests/unit/test_jwt.py",
+      "test_function": "test_authenticate_user",
+      "description": "Implement user authentication against database.",
+      "implementation_guidance": [
+        "Add authenticate_user(username: str, password: str) -> Optional[User]",
+        "Use fullon_orm DatabaseContext to query users",
+        "Query by username or email field",
+        "Verify password with verify_password()",
+        "Return User ORM object if valid, None otherwise"
+      ],
+      "acceptance_criteria": [
+        "Test test_authenticate_user passes",
+        "Queries database for user",
+        "Verifies password correctly",
+        "Returns User object on success",
+        "Returns None on failure"
+      ],
+      "depends_on": [6],
+      "blocks": [8]
+    },
+    {
+      "number": 8,
+      "title": "[Phase 2] Implement POST /api/v1/auth/login endpoint",
+      "type": "endpoint",
+      "labels": ["phase-2-jwt", "auth", "endpoint", "critical"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "50-103",
+      "test_file": "tests/integration/test_auth_endpoints.py",
+      "test_function": "test_login_endpoint",
+      "description": "Create login endpoint that issues JWT tokens.",
+      "expected_response": {
+        "access_token": "eyJ...",
+        "token_type": "bearer",
+        "expires_in": 3600
+      },
+      "implementation_guidance": [
+        "Create router in src/fullon_master_api/routers/auth.py",
+        "Add POST endpoint /api/v1/auth/login",
+        "Accept OAuth2PasswordRequestForm (username, password)",
+        "Call authenticate_user()",
+        "Return 401 if authentication fails",
+        "Generate token with JWTHandler.generate_token()",
+        "Return {access_token, token_type: 'bearer', expires_in}"
+      ],
+      "acceptance_criteria": [
+        "Test test_login_endpoint passes",
+        "Endpoint accepts form data (OAuth2)",
+        "Returns 401 for invalid credentials",
+        "Returns 200 with token for valid credentials",
+        "Response format matches example",
+        "Token is valid JWT"
+      ],
+      "depends_on": [2, 7],
+      "blocks": [13]
+    },
+    {
+      "number": 9,
+      "title": "[Phase 2] Implement GET /api/v1/auth/verify endpoint",
+      "type": "endpoint",
+      "labels": ["phase-2-jwt", "auth", "endpoint"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "116-143",
+      "test_file": "tests/integration/test_auth_endpoints.py",
+      "test_function": "test_verify_endpoint",
+      "description": "Create endpoint to verify JWT token validity.",
+      "expected_response": {
+        "user_id": 1,
+        "username": "admin",
+        "email": "admin@example.com"
+      },
+      "implementation_guidance": [
+        "Add GET endpoint /api/v1/auth/verify to auth router",
+        "Extract token from Authorization header",
+        "Call JWTHandler.verify_token()",
+        "Return 401 if token invalid/expired",
+        "Return user info from token payload"
+      ],
+      "acceptance_criteria": [
+        "Test test_verify_endpoint passes",
+        "Accepts Authorization: Bearer <token>",
+        "Returns 401 for missing/invalid token",
+        "Returns 200 with user data for valid token",
+        "Response includes user_id, username, email"
+      ],
+      "depends_on": [4],
+      "blocks": [13]
+    },
+    {
+      "number": 10,
+      "title": "[Phase 2] Implement JWTMiddleware class",
+      "type": "middleware",
+      "labels": ["phase-2-jwt", "auth", "middleware"],
+      "example_file": "examples/example_authenticated_request.py",
+      "example_lines": "73-78",
+      "test_file": "tests/unit/test_middleware.py",
+      "test_function": "test_jwt_middleware",
+      "description": "Create middleware to validate JWT on protected routes.",
+      "implementation_guidance": [
+        "Create JWTMiddleware in src/fullon_master_api/auth/middleware.py",
+        "Extract token from Authorization header",
+        "Call JWTHandler.verify_token()",
+        "If valid, set request.state.user with user data",
+        "If invalid, continue (let endpoints handle 401)",
+        "Skip auth for public routes (/health, /docs, /auth/login)"
+      ],
+      "acceptance_criteria": [
+        "Test test_jwt_middleware passes",
+        "Validates tokens on requests",
+        "Sets request.state.user for valid tokens",
+        "Public routes bypass validation",
+        "No 401 in middleware (endpoints decide)"
+      ],
+      "depends_on": [4],
+      "blocks": [12]
+    },
+    {
+      "number": 11,
+      "title": "[Phase 2] Create get_current_user() dependency",
+      "type": "dependency",
+      "labels": ["phase-2-jwt", "auth"],
+      "example_file": "examples/example_authenticated_request.py",
+      "example_lines": "80-104",
+      "test_file": "tests/unit/test_dependencies.py",
+      "test_function": "test_get_current_user",
+      "description": "Create FastAPI dependency for protected endpoints.",
+      "implementation_guidance": [
+        "Create get_current_user() in src/fullon_master_api/auth/dependencies.py",
+        "Extract token from Authorization header",
+        "Call JWTHandler.verify_token()",
+        "Raise HTTPException(401) if invalid",
+        "Return user data from token if valid",
+        "Use as FastAPI Depends() in endpoints"
+      ],
+      "acceptance_criteria": [
+        "Test test_get_current_user passes",
+        "Returns user data for valid token",
+        "Raises 401 for missing token",
+        "Raises 401 for invalid token",
+        "Works as FastAPI dependency"
+      ],
+      "depends_on": [4],
+      "blocks": [12]
+    },
+    {
+      "number": 12,
+      "title": "[Phase 2] Integrate middleware into gateway.py",
+      "type": "integration",
+      "labels": ["phase-2-jwt", "integration"],
+      "example_file": null,
+      "example_lines": null,
+      "test_file": "tests/integration/test_gateway.py",
+      "test_function": "test_middleware_integration",
+      "description": "Add JWTMiddleware to main application.",
+      "implementation_guidance": [
+        "Import JWTMiddleware in src/fullon_master_api/gateway.py",
+        "Add middleware to app: app.add_middleware(JWTMiddleware)",
+        "Include auth router: app.include_router(auth_router)",
+        "Ensure middleware runs before routes"
+      ],
+      "acceptance_criteria": [
+        "Test test_middleware_integration passes",
+        "Middleware is active on all routes",
+        "Auth endpoints are accessible",
+        "Protected endpoints require auth",
+        "Public endpoints work without auth"
+      ],
+      "depends_on": [10, 11],
+      "blocks": [13]
+    },
+    {
+      "number": 13,
+      "title": "[Phase 2] Verify example_jwt_login.py works end-to-end",
+      "type": "integration",
+      "labels": ["phase-2-jwt", "integration", "example-validation"],
+      "example_file": "examples/example_jwt_login.py",
+      "example_lines": "1-192",
+      "test_file": "tests/e2e/test_jwt_example.py",
+      "test_function": "test_jwt_login_example",
+      "description": "Validate complete JWT login flow with actual example.",
+      "implementation_guidance": [
+        "Run example_jwt_login.py against live API",
+        "Verify login() returns valid token",
+        "Verify verify_token() succeeds",
+        "Check all example output is correct",
+        "No ❌ errors in example output"
+      ],
+      "acceptance_criteria": [
+        "Example runs without errors",
+        "Login succeeds with valid credentials",
+        "Token verification works",
+        "Example output shows ✅ success messages",
+        "All example functions work correctly"
+      ],
+      "depends_on": [8, 9, 12],
+      "blocks": []
+    }
+  ]
+}

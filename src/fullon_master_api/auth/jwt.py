@@ -6,10 +6,13 @@ for the unified API gateway.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import jwt
-from pydantic import BaseModel
 from fullon_log import get_component_logger
+from pydantic import BaseModel
+
+from ..config import settings
 
 
 class JWTHandler:
@@ -27,6 +30,31 @@ class JWTHandler:
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.logger.info("JWT handler initialized", algorithm=algorithm)
+
+    def generate_token(self, user_id: int, username: str, email: Optional[str] = None) -> str:
+        """
+        Generate a JWT access token for a user.
+
+        Args:
+            user_id: User's unique identifier
+            username: User's username
+            email: User's email address (optional)
+
+        Returns:
+            Encoded JWT token string
+        """
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiration_minutes)
+
+        payload = {
+            "user_id": user_id,
+            "username": username,
+            "email": email,
+            "exp": expire,
+        }
+
+        token = jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        self.logger.info("JWT token generated", user_id=user_id)
+        return token
 
     def create_token(
         self,
