@@ -81,8 +81,45 @@ def test_decode_token():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #3")
+    # Create JWT handler
+    handler = JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
+
+    # Test data
+    user_id = 456
+    username = "testdecode"
+    email = "decode@example.com"
+
+    # Generate a valid token first
+    token = handler.generate_token(user_id=user_id, username=username, email=email)
+
+    # Test successful decoding
+    decoded = handler.decode_token(token)
+
+    # Verify decoded payload
+    assert isinstance(decoded, dict)
+    assert decoded["user_id"] == user_id
+    assert decoded["username"] == username
+    assert decoded["email"] == email
+    assert "exp" in decoded
+
+    # Test invalid token raises PyJWTError
+    with pytest.raises(jwt.PyJWTError):
+        handler.decode_token("invalid.token.here")
+
+    # Test expired token (create token with negative expiration)
+    expired_token = jwt.encode(
+        {
+            "user_id": user_id,
+            "username": username,
+            "email": email,
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1)  # Already expired
+        },
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm
+    )
+
+    with pytest.raises(jwt.PyJWTError):
+        handler.decode_token(expired_token)
 
 
 

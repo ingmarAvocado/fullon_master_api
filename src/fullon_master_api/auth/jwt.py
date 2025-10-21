@@ -100,22 +100,18 @@ class JWTHandler:
             Decoded payload dictionary
 
         Raises:
-            jwt.ExpiredSignatureError: If token has expired
-            jwt.InvalidTokenError: If token is invalid
+            jwt.PyJWTError: If token is invalid or expired
         """
         try:
             payload = jwt.decode(
                 token,
-                self.secret_key,
-                algorithms=[self.algorithm]
+                settings.jwt_secret_key,
+                algorithms=[settings.jwt_algorithm]
             )
-            self.logger.debug("Token decoded successfully", subject=payload.get("sub"))
+            self.logger.debug("Token decoded successfully", user_id=payload.get("user_id"))
             return payload
-        except jwt.ExpiredSignatureError:
-            self.logger.warning("Token expired", token_prefix=token[:10] if token else "")
-            raise
-        except jwt.InvalidTokenError as e:
-            self.logger.error("Invalid token", error=str(e))
+        except jwt.PyJWTError as e:
+            self.logger.warning("Token decode failed", error=str(e))
             raise
 
     def verify_token(self, token: str) -> bool:
