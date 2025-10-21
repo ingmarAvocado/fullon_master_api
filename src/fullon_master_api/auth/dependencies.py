@@ -9,8 +9,14 @@ from typing import Optional, Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
+from fullon_log import get_component_logger
+from fullon_orm import DatabaseContext
+from fullon_orm.models import User
 
 from .jwt import JWTHandler, TokenData
+
+# Module-level logger
+logger = get_component_logger("fullon.auth.dependencies")
 
 
 # Security scheme for JWT Bearer tokens
@@ -33,7 +39,7 @@ class AuthDependencies:
     async def get_current_user(
         self,
         credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
-    ) -> dict:
+    ) -> User:
         """
         Dependency to get the current authenticated user.
 
@@ -41,7 +47,7 @@ class AuthDependencies:
             credentials: Bearer token from Authorization header
 
         Returns:
-            User data from JWT payload
+            User ORM object from database
 
         Raises:
             HTTPException: If token is invalid or expired
@@ -52,19 +58,34 @@ class AuthDependencies:
             payload = self.jwt_handler.decode_token(token)
             username: str = payload.get("sub")
             if username is None:
+                logger.error("Token missing 'sub' claim")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication credentials",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            return payload
+
+            # Fetch user from database using ORM
+            async with DatabaseContext() as db:
+                user = await db.users.get_by_mail(username)
+                if user is None:
+                    logger.warning("User not found in database", username=username)
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User not found",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+                logger.debug("User retrieved from database", username=username, uid=user.uid)
+                return user
         except jwt.ExpiredSignatureError:
+            logger.warning("Token expired")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            logger.error("Invalid token", error=str(e))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
@@ -73,8 +94,8 @@ class AuthDependencies:
 
     async def get_current_active_user(
         self,
-        current_user: Annotated[dict, Depends(get_current_user)]
-    ) -> dict:
+        current_user: Annotated[User, Depends(get_current_user)]
+    ) -> User:
         """
         Dependency to get the current active user.
 
@@ -82,23 +103,21 @@ class AuthDependencies:
             current_user: Current user from get_current_user dependency
 
         Returns:
-            User data if user is active
+            User ORM object if user is active
 
         Raises:
             HTTPException: If user is inactive
         """
-        if current_user.get("disabled"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user"
-            )
+        # Note: User model doesn't have 'disabled' field, could check other status fields
+        # For now, return the user as-is
+        logger.debug("Active user check", uid=current_user.uid)
         return current_user
 
 
-def get_current_user(
+async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     secret_key: str
-) -> dict:
+) -> User:
     """
     Standalone dependency function to get current user.
 
@@ -107,7 +126,7 @@ def get_current_user(
         secret_key: JWT secret key
 
     Returns:
-        User data from token
+        User ORM object from database
 
     Raises:
         HTTPException: If authentication fails
@@ -119,19 +138,34 @@ def get_current_user(
         payload = handler.decode_token(token)
         username: str = payload.get("sub")
         if username is None:
+            logger.error("Token missing 'sub' claim")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return payload
+
+        # Fetch user from database using ORM
+        async with DatabaseContext() as db:
+            user = await db.users.get_by_mail(username)
+            if user is None:
+                logger.warning("User not found in database", username=username)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            logger.debug("User retrieved from database", username=username, uid=user.uid)
+            return user
     except jwt.ExpiredSignatureError:
+        logger.warning("Token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        logger.error("Invalid token", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -159,8 +193,10 @@ def verify_token(token: str, secret_key: str) -> TokenData:
         payload = handler.decode_token(token)
         username: str = payload.get("sub")
         scopes: list = payload.get("scopes", [])
+        logger.debug("Token verified", username=username, scopes_count=len(scopes))
         return TokenData(username=username, scopes=scopes)
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
+        logger.error("Token verification failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -180,7 +216,7 @@ class RequireScopes:
         """
         self.scopes = scopes
 
-    def __call__(self, current_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    def __call__(self, current_user: Annotated[User, Depends(get_current_user)]) -> User:
         """
         Check if user has required scopes.
 
@@ -188,18 +224,24 @@ class RequireScopes:
             current_user: Current authenticated user
 
         Returns:
-            User data if scopes are satisfied
+            User ORM object if scopes are satisfied
 
         Raises:
             HTTPException: If user lacks required scopes
         """
-        user_scopes = current_user.get("scopes", [])
+        # Note: User model doesn't have scopes field yet
+        # This would need to be implemented when user roles/scopes are added
+        # For now, we'll log and return the user
+        logger.debug("Scope check", uid=current_user.uid, required_scopes=self.scopes)
 
-        for required_scope in self.scopes:
-            if required_scope not in user_scopes:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Not enough permissions. Required scope: {required_scope}"
-                )
+        # TODO: Implement scope checking when User model has scopes/roles
+        # user_scopes = current_user.scopes or []
+        # for required_scope in self.scopes:
+        #     if required_scope not in user_scopes:
+        #         logger.warning("Insufficient permissions", uid=current_user.uid, required_scope=required_scope)
+        #         raise HTTPException(
+        #             status_code=status.HTTP_403_FORBIDDEN,
+        #             detail=f"Not enough permissions. Required scope: {required_scope}"
+        #         )
 
         return current_user

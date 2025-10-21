@@ -11,6 +11,7 @@ from fastapi.security.utils import get_authorization_scheme_param
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import jwt
+from fullon_log import get_component_logger
 
 from .jwt import JWTHandler
 
@@ -40,6 +41,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             exclude_paths: List of paths to exclude from authentication
         """
         super().__init__(app)
+        self.logger = get_component_logger("fullon.auth.middleware")
         self.jwt_handler = JWTHandler(secret_key, algorithm)
         self.exclude_paths = exclude_paths or [
             "/",
@@ -50,6 +52,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/auth/login",
             "/auth/register"
         ]
+        self.logger.info("Auth middleware initialized", excluded_paths_count=len(self.exclude_paths))
 
     async def dispatch(
         self,
@@ -68,12 +71,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """
         # Check if path should be excluded from auth
         if self._is_excluded_path(request.url.path):
+            self.logger.debug("Path excluded from authentication", path=request.url.path)
             return await call_next(request)
 
         # Extract token from Authorization header
         token = self._extract_token(request)
 
         if not token:
+            self.logger.warning("Missing authentication token", path=request.url.path, method=request.method)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Missing authentication token",
@@ -85,13 +90,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
             payload = self.jwt_handler.decode_token(token)
             # Add user info to request state for use in endpoints
             request.state.user = payload
+            self.logger.info("Authentication successful", path=request.url.path, user=payload.get("sub"))
         except jwt.ExpiredSignatureError:
+            self.logger.warning("Token expired", path=request.url.path)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            self.logger.error("Invalid token", path=request.url.path, error=str(e))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token",
