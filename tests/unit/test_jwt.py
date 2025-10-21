@@ -1,0 +1,163 @@
+"""
+Test stubs for test_jwt.py
+
+Auto-generated from phase manifest.
+Each test corresponds to a GitHub issue.
+
+Tests initially use pytest.skip() and should be implemented
+as part of the TDD workflow.
+"""
+from datetime import datetime, timedelta, timezone
+
+import jwt
+import pytest
+from fullon_master_api.auth.jwt import JWTHandler
+from fullon_master_api.config import settings
+
+# Import modules under test
+# TODO: Add imports as implementation progresses
+
+
+def test_generate_token():
+    """
+    Test for Issue #2: [Phase 2] Implement JWTHandler.generate_token()
+
+    Implement generate_token() method to create JWT access tokens.
+
+    Implementation requirements:
+    - Create JWTHandler class in src/fullon_master_api/auth/jwt.py
+    - Implement generate_token(user_id: int, username: str, email: str = None) -> str
+    - Use PyJWT library (import jwt)
+    - Token payload: {user_id, username, email, exp}
+    - Use settings.jwt_secret_key and settings.jwt_algorithm
+    - Set expiration: datetime.utcnow() + timedelta(minutes=settings.jwt_expiration_minutes)
+
+    This test should pass when the implementation is complete.
+    """
+    # Create JWT handler
+    handler = JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
+
+    # Test data
+    user_id = 123
+    username = "testuser"
+    email = "test@example.com"
+
+    # Generate token
+    token = handler.generate_token(user_id=user_id, username=username, email=email)
+
+    # Verify token is a string
+    assert isinstance(token, str)
+    assert len(token) > 0
+
+    # Decode token and verify claims
+    decoded = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+
+    assert decoded["user_id"] == user_id
+    assert decoded["username"] == username
+    assert decoded["email"] == email
+    assert "exp" in decoded
+
+    # Verify expiration is set correctly (within reasonable time window)
+    expected_exp = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiration_minutes)
+    actual_exp = datetime.fromtimestamp(decoded["exp"], tz=timezone.utc)
+
+    # Allow for small time differences in test execution
+    time_diff = abs((actual_exp - expected_exp).total_seconds())
+    assert time_diff < 10  # Within 10 seconds
+
+
+
+def test_decode_token():
+    """
+    Test for Issue #3: [Phase 2] Implement JWTHandler.decode_token()
+
+    Implement decode_token() method to extract claims from JWT.
+
+    Implementation requirements:
+    - Add decode_token(token: str) -> dict method to JWTHandler
+    - Use jwt.decode() with settings.jwt_secret_key
+    - Return decoded payload dictionary
+    - Handle invalid tokens with JWTError exception
+
+    This test should pass when the implementation is complete.
+    """
+    # TODO: Implement test
+    pytest.skip("Test not yet implemented - Issue #3")
+
+
+
+def test_verify_token():
+    """
+    Test for Issue #4: [Phase 2] Implement JWTHandler.verify_token()
+
+    Implement verify_token() to validate token signature and expiration.
+
+    Implementation requirements:
+    - Add verify_token(token: str) -> Optional[dict] method
+    - Call decode_token() internally
+    - Catch ExpiredSignatureError and return None
+    - Catch JWTError and return None
+    - Return decoded payload if valid
+
+    This test should pass when the implementation is complete.
+    """
+    # TODO: Implement test
+    pytest.skip("Test not yet implemented - Issue #4")
+
+
+
+def test_hash_password():
+    """
+    Test for Issue #5: [Phase 2] Implement hash_password() utility
+
+    Implement password hashing using bcrypt.
+
+    Implementation requirements:
+    - Add hash_password(password: str) -> str function to jwt.py
+    - Use bcrypt library (from passlib.context import CryptContext)
+    - Create CryptContext with bcrypt scheme
+    - Return hashed password string
+
+    This test should pass when the implementation is complete.
+    """
+    # TODO: Implement test
+    pytest.skip("Test not yet implemented - Issue #5")
+
+
+
+def test_verify_password():
+    """
+    Test for Issue #6: [Phase 2] Implement verify_password() utility
+
+    Implement password verification against hash.
+
+    Implementation requirements:
+    - Add verify_password(plain_password: str, hashed_password: str) -> bool
+    - Use same CryptContext as hash_password
+    - Return True if password matches hash
+
+    This test should pass when the implementation is complete.
+    """
+    # TODO: Implement test
+    pytest.skip("Test not yet implemented - Issue #6")
+
+
+
+def test_authenticate_user():
+    """
+    Test for Issue #7: [Phase 2] Implement authenticate_user() with DB query
+
+    Implement user authentication against database.
+
+    Implementation requirements:
+    - Add authenticate_user(username: str, password: str) -> Optional[User]
+    - Use fullon_orm DatabaseContext to query users
+    - Query by username or email field
+    - Verify password with verify_password()
+    - Return User ORM object if valid, None otherwise
+
+    This test should pass when the implementation is complete.
+    """
+    # TODO: Implement test
+    pytest.skip("Test not yet implemented - Issue #7")
+

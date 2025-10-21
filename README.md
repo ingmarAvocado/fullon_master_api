@@ -123,6 +123,45 @@ make format
 make lint
 ```
 
+### Examples-Driven Issue Workflow
+
+This project uses an **examples-driven, test-driven development** workflow:
+
+```
+masterplan.md → issue manifest → GitHub issues → test stubs → TDD → passing tests
+```
+
+**Key principles:**
+- ✅ **Examples define WHAT** - Executable contracts showing expected behavior
+- ✅ **Tests define HOW we validate** - pytest tests that must pass
+- ✅ **Issues define incremental steps** - One function/method per issue
+- ✅ **GitHub tracks progress** - Issues, labels, dependencies
+
+**Workflow:**
+
+```bash
+# 1. Generate GitHub issues from manifest
+python scripts/generate_phase_issues.py --phase 2
+
+# 2. Create test stubs
+python scripts/create_test_stubs.py --phase 2
+
+# 3. View issues
+gh issue list --label phase-2-jwt
+
+# 4. Pick an issue and implement using TDD
+# - Remove pytest.skip() from test
+# - Run test (should fail)
+# - Implement code
+# - Run test (should pass)
+# - Close issue
+
+# 5. Track progress
+poetry run pytest -v
+```
+
+See [ISSUES_WORKFLOW.md](ISSUES_WORKFLOW.md) for complete workflow documentation.
+
 ## API Documentation
 
 Once the server is running, visit:

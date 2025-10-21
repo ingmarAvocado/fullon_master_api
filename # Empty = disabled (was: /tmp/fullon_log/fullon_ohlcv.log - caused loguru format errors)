@@ -1,0 +1,4 @@
+2025-10-21 19:55:44.460 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-21 20:04:52.183 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-21 20:04:52.287 | INFO     | fullon_master_api.auth.jwt | 32 | JWT handler initialized algorithm=HS256
+2025-10-21 20:04:52.287 | INFO     | fullon_master_api.auth.jwt | 56 | JWT token generated user_id=123
