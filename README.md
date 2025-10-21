@@ -60,11 +60,52 @@ make setup
 # Update .env with your credentials
 vim .env
 
-# Run development server
+# Run development server (foreground)
 make run
+
+# OR run as daemon (background)
+make daemon-start
 ```
 
 The API will be available at `http://localhost:8000`
+
+### Running as Daemon
+
+The API can run as a background daemon process:
+
+```bash
+# Start daemon
+./start_fullon.py start
+# or
+make daemon-start
+
+# Check status
+./start_fullon.py status
+# or
+make daemon-status
+
+# View logs
+./start_fullon.py logs
+# or
+make daemon-logs
+
+# Stop daemon
+./start_fullon.py stop
+# or
+make daemon-stop
+
+# Restart daemon
+./start_fullon.py restart
+# or
+make daemon-restart
+```
+
+**Daemon features:**
+- Runs in background as forked process
+- PID file: `~/.fullon_master_api.pid`
+- Log file: `/tmp/fullon_master_api.log`
+- Graceful shutdown (SIGTERM handling)
+- Systemd service file included
 
 ### Development
 

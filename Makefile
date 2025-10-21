@@ -1,6 +1,6 @@
 # Fullon Master API - Development Makefile
 
-.PHONY: help install test lint format run clean setup dev-setup
+.PHONY: help install test lint format run clean setup dev-setup daemon-start daemon-stop daemon-restart daemon-status daemon-logs
 
 # Default target
 help:
@@ -12,11 +12,18 @@ help:
 	@echo "  make dev-setup    - Setup development environment"
 	@echo ""
 	@echo "Development:"
-	@echo "  make run          - Run development server"
+	@echo "  make run          - Run development server (foreground)"
 	@echo "  make test         - Run test suite"
 	@echo "  make test-cov     - Run tests with coverage report"
 	@echo "  make lint         - Run linters (ruff + mypy)"
 	@echo "  make format       - Format code (black + ruff)"
+	@echo ""
+	@echo "Daemon Control:"
+	@echo "  make daemon-start    - Start daemon in background"
+	@echo "  make daemon-stop     - Stop daemon"
+	@echo "  make daemon-restart  - Restart daemon"
+	@echo "  make daemon-status   - Check daemon status"
+	@echo "  make daemon-logs     - Tail daemon logs"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean        - Clean generated files"
@@ -90,6 +97,25 @@ update:
 	@echo "Updating dependencies..."
 	poetry update
 	@echo "✅ Dependencies updated"
+
+# Daemon control commands
+daemon-start:
+	@echo "Starting Fullon Master API daemon..."
+	./start_fullon.py start
+
+daemon-stop:
+	@echo "Stopping Fullon Master API daemon..."
+	./start_fullon.py stop
+
+daemon-restart:
+	@echo "Restarting Fullon Master API daemon..."
+	./start_fullon.py restart
+
+daemon-status:
+	@./start_fullon.py status
+
+daemon-logs:
+	@./start_fullon.py logs
 
 # Docker commands (for future use)
 docker-build:

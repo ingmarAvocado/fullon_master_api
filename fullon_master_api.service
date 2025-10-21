@@ -1,0 +1,39 @@
+[Unit]
+Description=Fullon Master API - Unified API Gateway
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=forking
+User=fullon
+Group=fullon
+WorkingDirectory=/opt/fullon/fullon_master_api
+
+# Environment
+EnvironmentFile=/opt/fullon/fullon_master_api/.env
+
+# Start/Stop commands
+ExecStart=/opt/fullon/fullon_master_api/start_fullon.py start
+ExecStop=/opt/fullon/fullon_master_api/start_fullon.py stop
+ExecReload=/opt/fullon/fullon_master_api/start_fullon.py restart
+
+# Process management
+PIDFile=/home/fullon/.fullon_master_api.pid
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp /var/log/fullon /home/fullon
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fullon-master-api
+
+[Install]
+WantedBy=multi-user.target
