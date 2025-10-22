@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional
 import bcrypt
 import jwt
 from fullon_log import get_component_logger
+from fullon_orm import DatabaseContext
+from fullon_orm.models import User
 from pydantic import BaseModel
 
 from ..config import settings
@@ -220,3 +222,55 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         logger = get_component_logger("fullon.auth.jwt")
         logger.error("Password verification failed", error=str(e))
         return False
+
+
+async def authenticate_user(username: str, password: str) -> Optional[User]:
+    """
+    Authenticate a user against the database.
+
+    Args:
+        username: Username or email to authenticate
+        password: Plain text password
+
+    Returns:
+        User ORM object if authentication successful, None otherwise
+    """
+    logger = get_component_logger("fullon.auth.jwt")
+
+    try:
+        async with DatabaseContext() as db:
+            # Query user by email/username
+            user = await db.users.get_by_mail(username)
+            if user is None:
+                logger.info(
+                    "Authentication failed - user not found",
+                    username=username,
+                    success=False
+                )
+                return None
+
+            # Verify password
+            if not verify_password(password, user.password):
+                logger.info(
+                    "Authentication failed - invalid password",
+                    username=username,
+                    success=False
+                )
+                return None
+
+            logger.info(
+                "Authentication successful",
+                username=username,
+                success=True,
+                uid=user.uid
+            )
+            return user
+
+    except Exception as e:
+        logger.error(
+            "Authentication failed - database error",
+            username=username,
+            error=str(e),
+            success=False
+        )
+        return None

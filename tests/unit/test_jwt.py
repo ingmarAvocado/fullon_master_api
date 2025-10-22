@@ -268,6 +268,50 @@ def test_authenticate_user():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #7")
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from fullon_master_api.auth.jwt import authenticate_user, hash_password
+
+    # Create a mock User object
+    mock_user = MagicMock()
+    mock_user.uid = 123
+    mock_user.password = hash_password("correctpassword")
+
+    # Test successful authentication
+    with patch('fullon_master_api.auth.jwt.DatabaseContext') as mock_db_context:
+        mock_db = AsyncMock()
+        mock_db.users.get_by_mail = AsyncMock(return_value=mock_user)
+        mock_db_context.return_value.__aenter__.return_value = mock_db
+        mock_db_context.return_value.__aexit__.return_value = None
+
+        import asyncio
+        result = asyncio.run(authenticate_user("test@example.com", "correctpassword"))
+
+        assert result is not None
+        assert result.uid == 123
+        mock_db.users.get_by_mail.assert_called_once_with("test@example.com")
+
+    # Test user not found
+    with patch('fullon_master_api.auth.jwt.DatabaseContext') as mock_db_context:
+        mock_db = AsyncMock()
+        mock_db.users.get_by_mail = AsyncMock(return_value=None)
+        mock_db_context.return_value.__aenter__.return_value = mock_db
+        mock_db_context.return_value.__aexit__.return_value = None
+
+        result = asyncio.run(authenticate_user("nonexistent@example.com", "password"))
+
+        assert result is None
+        mock_db.users.get_by_mail.assert_called_once_with("nonexistent@example.com")
+
+    # Test wrong password
+    with patch('fullon_master_api.auth.jwt.DatabaseContext') as mock_db_context:
+        mock_db = AsyncMock()
+        mock_db.users.get_by_mail = AsyncMock(return_value=mock_user)
+        mock_db_context.return_value.__aenter__.return_value = mock_db
+        mock_db_context.return_value.__aexit__.return_value = None
+
+        result = asyncio.run(authenticate_user("test@example.com", "wrongpassword"))
+
+        assert result is None
+        mock_db.users.get_by_mail.assert_called_once_with("test@example.com")
 
