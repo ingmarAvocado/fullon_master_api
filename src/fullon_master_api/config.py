@@ -4,6 +4,7 @@ Configuration management for Fullon Master API.
 Uses pydantic-settings for environment-based configuration.
 """
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import List
 
 
@@ -38,11 +39,12 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"  # Allow extra env vars (for fullon_orm, fullon_cache, etc.)
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"  # Allow extra env vars (for fullon_orm, fullon_cache, etc.)
+    )
 
 
 # Global settings instance

@@ -8,6 +8,7 @@ for the unified API gateway.
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+import bcrypt
 import jwt
 from fullon_log import get_component_logger
 from pydantic import BaseModel
@@ -169,9 +170,21 @@ def hash_password(password: str) -> str:
 
     Returns:
         Hashed password string
+
+    Raises:
+        ValueError: If password hashing fails
     """
-    import bcrypt
-    # Generate salt and hash password
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
+    try:
+        logger = get_component_logger("fullon.auth.jwt")
+
+        # Generate salt and hash password
+        salt = bcrypt.gensalt()
+        hashed_bytes = bcrypt.hashpw(password.encode('utf-8'), salt)
+        hashed = hashed_bytes.decode('utf-8')
+
+        logger.debug("Password hashed successfully")
+        return hashed
+    except Exception as e:
+        logger = get_component_logger("fullon.auth.jwt")
+        logger.error("Password hashing failed", error=str(e))
+        raise ValueError("Password hashing failed") from e

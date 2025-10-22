@@ -8,7 +8,7 @@ packages = [{include = "fullon_master_api", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.13,<4.0"
-fastapi = "^0.104.0"
+fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.24.0"}
 pyjwt = "^2.8.0"
 python-dotenv = "^1.0.0"
@@ -27,6 +27,9 @@ fullon-exchange = {git = "ssh://git@github.com/ingmarAvocado/fullon_exchange.git
 fullon-orm-api = {path = "../fullon_orm_api", develop = true}
 fullon-ohlcv-api = {path = "../fullon_ohlcv_api", develop = true}
 fullon-cache-api = {path = "../fullon_cache_api", develop = true}
+
+# Password hashing
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
