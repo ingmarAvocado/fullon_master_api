@@ -280,7 +280,7 @@ def test_authenticate_user():
     # Test successful authentication
     with patch('fullon_master_api.auth.jwt.DatabaseContext') as mock_db_context:
         mock_db = AsyncMock()
-        mock_db.users.get_by_mail = AsyncMock(return_value=mock_user)
+        mock_db.users.get_by_email = AsyncMock(return_value=mock_user)
         mock_db_context.return_value.__aenter__.return_value = mock_db
         mock_db_context.return_value.__aexit__.return_value = None
 
@@ -289,29 +289,29 @@ def test_authenticate_user():
 
         assert result is not None
         assert result.uid == 123
-        mock_db.users.get_by_mail.assert_called_once_with("test@example.com")
+        mock_db.users.get_by_email.assert_called_once_with("test@example.com")
 
     # Test user not found
     with patch('fullon_master_api.auth.jwt.DatabaseContext') as mock_db_context:
         mock_db = AsyncMock()
-        mock_db.users.get_by_mail = AsyncMock(return_value=None)
+        mock_db.users.get_by_email = AsyncMock(return_value=None)
         mock_db_context.return_value.__aenter__.return_value = mock_db
         mock_db_context.return_value.__aexit__.return_value = None
 
         result = asyncio.run(authenticate_user("nonexistent@example.com", "password"))
 
         assert result is None
-        mock_db.users.get_by_mail.assert_called_once_with("nonexistent@example.com")
+        mock_db.users.get_by_email.assert_called_once_with("nonexistent@example.com")
 
     # Test wrong password
     with patch('fullon_master_api.auth.jwt.DatabaseContext') as mock_db_context:
         mock_db = AsyncMock()
-        mock_db.users.get_by_mail = AsyncMock(return_value=mock_user)
+        mock_db.users.get_by_email = AsyncMock(return_value=mock_user)
         mock_db_context.return_value.__aenter__.return_value = mock_db
         mock_db_context.return_value.__aexit__.return_value = None
 
         result = asyncio.run(authenticate_user("test@example.com", "wrongpassword"))
 
         assert result is None
-        mock_db.users.get_by_mail.assert_called_once_with("test@example.com")
+        mock_db.users.get_by_email.assert_called_once_with("test@example.com")
 

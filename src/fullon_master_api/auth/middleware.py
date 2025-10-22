@@ -5,15 +5,15 @@ This module provides middleware for JWT-based authentication
 across all API endpoints.
 """
 
-from typing import Optional, Callable
-from fastapi import Request, HTTPException, status
-from fastapi.security.utils import get_authorization_scheme_param
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from typing import Callable, Optional
+
 import jwt
+from fastapi import HTTPException, Request, status
+from fastapi.security.utils import get_authorization_scheme_param
 from fullon_log import get_component_logger
 from fullon_orm import DatabaseContext
-from fullon_orm.models import User
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from .jwt import JWTHandler
 

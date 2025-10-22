@@ -6,10 +6,10 @@ Usage:
     # or
     python -m fullon_master_api.main
 """
-from .gateway import app
 
 if __name__ == "__main__":
     import uvicorn
+
     from .config import settings
 
     uvicorn.run(

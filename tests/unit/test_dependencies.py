@@ -8,7 +8,6 @@ Tests initially use pytest.skip() and should be implemented
 as part of the TDD workflow.
 """
 import pytest
-from fullon_master_api.config import settings
 
 # Import modules under test
 # TODO: Add imports as implementation progresses

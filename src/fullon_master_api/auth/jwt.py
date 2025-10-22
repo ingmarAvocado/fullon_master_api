@@ -49,6 +49,7 @@ class JWTHandler:
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiration_minutes)
 
         payload = {
+            "sub": username,
             "user_id": user_id,
             "username": username,
             "email": email,
@@ -240,7 +241,7 @@ async def authenticate_user(username: str, password: str) -> Optional[User]:
     try:
         async with DatabaseContext() as db:
             # Query user by email/username
-            user = await db.users.get_by_mail(username)
+            user = await db.users.get_by_email(username)
             if user is None:
                 logger.info(
                     "Authentication failed - user not found",

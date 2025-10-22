@@ -4,12 +4,11 @@ Test auth module structure.
 Tests for Issue #1: [Phase 2] Setup auth module structure
 Verifies that all required auth module files exist and can be imported.
 """
-import os
 import importlib
 import sys
 from pathlib import Path
+
 import pytest
-from fullon_master_api.config import settings
 
 
 def test_auth_modules_exist():
