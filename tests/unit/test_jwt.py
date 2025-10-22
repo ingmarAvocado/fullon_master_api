@@ -138,8 +138,44 @@ def test_verify_token():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #4")
+    # Create JWT handler
+    handler = JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
+
+    # Test data
+    user_id = 789
+    username = "testverify"
+    email = "verify@example.com"
+
+    # Test valid token
+    valid_token = handler.generate_token(user_id=user_id, username=username, email=email)
+    result = handler.verify_token(valid_token)
+
+    # Should return the decoded payload
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["user_id"] == user_id
+    assert result["username"] == username
+    assert result["email"] == email
+    assert "exp" in result
+
+    # Test invalid token
+    invalid_result = handler.verify_token("invalid.token.here")
+    assert invalid_result is None
+
+    # Test expired token (create token with negative expiration)
+    expired_token = jwt.encode(
+        {
+            "user_id": user_id,
+            "username": username,
+            "email": email,
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1)  # Already expired
+        },
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm
+    )
+
+    expired_result = handler.verify_token(expired_token)
+    assert expired_result is None
 
 
 

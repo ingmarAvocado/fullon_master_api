@@ -114,23 +114,24 @@ class JWTHandler:
             self.logger.warning("Token decode failed", error=str(e))
             raise
 
-    def verify_token(self, token: str) -> bool:
+    def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
-        Verify if a token is valid.
+        Verify if a token is valid and return its payload.
 
         Args:
             token: JWT token to verify
 
         Returns:
-            True if token is valid, False otherwise
+            Decoded payload dictionary if token is valid, None otherwise
         """
         try:
-            self.decode_token(token)
-            self.logger.debug("Token verified successfully")
-            return True
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            self.logger.debug("Token verification failed")
-            return False
+            payload = self.decode_token(token)
+            self.logger.debug("Token verified successfully", user_id=payload.get("user_id"))
+            return payload
+        except jwt.PyJWTError as e:
+            reason = "expired" if isinstance(e, jwt.ExpiredSignatureError) else "invalid"
+            self.logger.warning("Token verification failed", reason=reason)
+            return None
 
 
 class TokenData(BaseModel):
