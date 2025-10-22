@@ -175,6 +175,141 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return token
 
 
+class JWTMiddleware(BaseHTTPMiddleware):
+    """
+    JWT authentication middleware for FastAPI.
+
+    Validates JWT tokens on incoming requests and sets user data
+    in request state for use in endpoints. Does not raise exceptions
+    for invalid tokens - lets endpoints handle authentication errors.
+    """
+
+    def __init__(
+        self,
+        app,
+        secret_key: str,
+        algorithm: str = "HS256",
+        exclude_paths: Optional[list[str]] = None
+    ):
+        """
+        Initialize JWT middleware.
+
+        Args:
+            app: FastAPI application instance
+            secret_key: Secret key for JWT validation
+            algorithm: JWT algorithm (default: HS256)
+            exclude_paths: List of paths to exclude from authentication
+        """
+        super().__init__(app)
+        self.logger = get_component_logger("fullon.auth.jwt_middleware")
+        self.jwt_handler = JWTHandler(secret_key, algorithm)
+        self.exclude_paths = exclude_paths or [
+            "/",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/health",
+            "/auth/login",
+            "/auth/verify"
+        ]
+        self.logger.info("JWT middleware initialized", excluded_paths_count=len(self.exclude_paths))
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable
+    ) -> Response:
+        """
+        Process incoming requests for JWT validation.
+
+        Validates JWT token and loads User ORM from database,
+        setting request.state.user if token is valid. Continues to endpoint
+        regardless of token validity.
+
+        Args:
+            request: Incoming HTTP request
+            call_next: Next middleware or endpoint handler
+
+        Returns:
+            HTTP response
+        """
+        # Check if path should be excluded from auth
+        if self._is_excluded_path(request.url.path):
+            self.logger.debug("Path excluded from JWT validation", path=request.url.path)
+            return await call_next(request)
+
+        # Extract token from Authorization header
+        token = self._extract_token(request)
+
+        if token:
+            # Validate token using verify_token (returns payload or None)
+            payload = self.jwt_handler.verify_token(token)
+
+            if payload:
+                # Extract user_id from payload and load User ORM from database
+                user_id = payload.get("user_id")
+                if user_id:
+                    async with DatabaseContext() as db:
+                        user = await db.users.get_by_id(user_id)
+                        if user:
+                            # Set User ORM instance (NOT dict)
+                            request.state.user = user
+                            self.logger.debug("User authenticated", user_id=user.uid, username=user.username, path=request.url.path)
+                        else:
+                            self.logger.warning("User not found in database", user_id=user_id, path=request.url.path)
+                else:
+                    self.logger.warning("Token missing user_id claim", path=request.url.path)
+            else:
+                self.logger.debug("JWT token invalid or expired", path=request.url.path)
+        else:
+            self.logger.debug("No JWT token provided", path=request.url.path)
+
+        # Continue to next middleware/endpoint regardless of token validity
+        response = await call_next(request)
+        return response
+
+    def _is_excluded_path(self, path: str) -> bool:
+        """
+        Check if a path should be excluded from JWT validation.
+
+        Args:
+            path: Request path
+
+        Returns:
+            True if path should be excluded, False otherwise
+        """
+        # Exact match
+        if path in self.exclude_paths:
+            return True
+
+        # Prefix match for paths like /static/*
+        for excluded in self.exclude_paths:
+            if excluded.endswith("*") and path.startswith(excluded[:-1]):
+                return True
+
+        return False
+
+    def _extract_token(self, request: Request) -> Optional[str]:
+        """
+        Extract JWT token from request headers.
+
+        Args:
+            request: HTTP request
+
+        Returns:
+            JWT token string or None if not found
+        """
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            return None
+
+        scheme, token = get_authorization_scheme_param(authorization)
+        if scheme.lower() != "bearer":
+            return None
+
+        return token
+
+
 def create_auth_middleware(secret_key: str, **kwargs) -> AuthMiddleware:
     """
     Factory function to create auth middleware.
