@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
 
 from .config import settings
+from .routers.auth import router as auth_router
 
 logger = get_component_logger("fullon.master_api.gateway")
 
@@ -82,6 +83,9 @@ class MasterGateway:
                 "health": "/health",
                 "api": settings.api_prefix,
             }
+
+        # Include auth router
+        app.include_router(auth_router, prefix=settings.api_prefix)
 
         logger.info(
             "FastAPI application created",
