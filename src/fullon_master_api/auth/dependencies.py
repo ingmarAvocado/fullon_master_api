@@ -8,7 +8,7 @@ and authorization in FastAPI endpoints.
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fullon_log import get_component_logger
 from fullon_orm import DatabaseContext
@@ -115,63 +115,32 @@ class AuthDependencies:
         return current_user
 
 
-async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    secret_key: str
-) -> User:
+async def get_current_user(request: Request) -> User:
     """
-    Standalone dependency function to get current user.
+    FastAPI dependency to get the current authenticated user.
+
+    This dependency assumes middleware has already validated the JWT
+    and loaded the User ORM instance into request.state.user.
 
     Args:
-        credentials: Bearer token credentials
-        secret_key: JWT secret key
+        request: FastAPI request object
 
     Returns:
-        User ORM object from database
+        User ORM object from request state
 
     Raises:
-        HTTPException: If authentication fails
+        HTTPException: If user is not authenticated
     """
-    token = credentials.credentials
-    handler = JWTHandler(secret_key)
-
-    try:
-        payload = handler.decode_token(token)
-        username: str = payload.get("sub")
-        if username is None:
-            logger.error("Token missing 'sub' claim")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # Fetch user from database using ORM
-        async with DatabaseContext() as db:
-            user = await db.users.get_by_email(username)
-            if user is None:
-                logger.warning("User not found in database", username=username)
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            logger.debug("User retrieved from database", username=username, uid=user.uid)
-            return user
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token expired")
+    user = getattr(request.state, 'user', None)
+    if user is None:
+        logger.warning("User not authenticated")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
+            detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except jwt.InvalidTokenError as e:
-        logger.error("Invalid token", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    logger.debug("User retrieved from request state", uid=user.uid, username=user.username)
+    return user
 
 
 def verify_token(token: str, secret_key: str) -> TokenData:
