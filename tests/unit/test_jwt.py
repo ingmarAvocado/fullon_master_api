@@ -228,8 +228,28 @@ def test_verify_password():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #6")
+    from fullon_master_api.auth.jwt import hash_password, verify_password
+
+    # Test data
+    password = "testpassword123"
+    wrong_password = "wrongpassword"
+
+    # Hash the password
+    hashed = hash_password(password)
+
+    # Test correct password verification
+    assert verify_password(password, hashed) is True
+
+    # Test incorrect password verification
+    assert verify_password(wrong_password, hashed) is False
+
+    # Test with different hashed password
+    different_hashed = hash_password("differentpassword")
+    assert verify_password(password, different_hashed) is False
+
+    # Test edge cases
+    assert verify_password("", hashed) is False  # Empty password
+    assert verify_password(password, "") is False  # Empty hash
 
 
 

@@ -188,3 +188,35 @@ def hash_password(password: str) -> str:
         logger = get_component_logger("fullon.auth.jwt")
         logger.error("Password hashing failed", error=str(e))
         raise ValueError("Password hashing failed") from e
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify a plain password against a hashed password.
+
+    Args:
+        plain_password: Plain text password to verify
+        hashed_password: Hashed password to compare against
+
+    Returns:
+        True if password matches, False otherwise
+    """
+    try:
+        logger = get_component_logger("fullon.auth.jwt")
+
+        # Verify password using bcrypt
+        is_valid = bcrypt.checkpw(
+            plain_password.encode('utf-8'),
+            hashed_password.encode('utf-8')
+        )
+
+        if is_valid:
+            logger.debug("Password verification successful")
+        else:
+            logger.debug("Password verification failed - incorrect password")
+
+        return is_valid
+    except Exception as e:
+        logger = get_component_logger("fullon.auth.jwt")
+        logger.error("Password verification failed", error=str(e))
+        return False
