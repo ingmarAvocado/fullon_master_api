@@ -158,3 +158,20 @@ def create_access_token(
     """
     handler = JWTHandler(secret_key)
     return handler.create_token(data, expires_delta)
+
+
+def hash_password(password: str) -> str:
+    """
+    Hash a password using bcrypt.
+
+    Args:
+        password: Plain text password to hash
+
+    Returns:
+        Hashed password string
+    """
+    import bcrypt
+    # Generate salt and hash password
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')

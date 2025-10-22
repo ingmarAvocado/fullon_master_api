@@ -193,8 +193,25 @@ def test_hash_password():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #5")
+    from fullon_master_api.auth.jwt import hash_password
+
+    # Test password hashing
+    password = "testpassword123"
+    hashed = hash_password(password)
+
+    # Verify hash is a string
+    assert isinstance(hashed, str)
+    assert len(hashed) > 0
+
+    # Verify hash starts with bcrypt identifier ($2b$ or $2a$)
+    assert hashed.startswith("$2")
+
+    # Verify hash is different each time (salt)
+    hashed2 = hash_password(password)
+    assert hashed != hashed2  # Different salts should produce different hashes
+
+    # Verify hash format is valid bcrypt (should be ~60 characters)
+    assert len(hashed) >= 50  # bcrypt hashes are typically around 60 chars
 
 
 

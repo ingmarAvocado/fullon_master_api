@@ -12,6 +12,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import jwt
 from fullon_log import get_component_logger
+from fullon_orm import DatabaseContext
+from fullon_orm.models import User
 
 from .jwt import JWTHandler
 
@@ -20,8 +22,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """
     JWT authentication middleware for FastAPI.
 
-    Validates JWT tokens on incoming requests and adds user
-    information to request state.
+    Validates JWT tokens on incoming requests and loads User ORM model
+    from database, adding it to request state for use in endpoints.
+
+    CRITICAL: Sets request.state.user as User ORM instance (NOT dict).
     """
 
     def __init__(
@@ -62,12 +66,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """
         Process incoming requests for authentication.
 
+        Validates JWT token, loads User ORM from database, and sets
+        request.state.user with User instance for endpoint access.
+
         Args:
             request: Incoming HTTP request
             call_next: Next middleware or endpoint handler
 
         Returns:
             HTTP response
+
+        Raises:
+            HTTPException: 401 if token is missing, invalid, expired, or user not found
         """
         # Check if path should be excluded from auth
         if self._is_excluded_path(request.url.path):
@@ -88,9 +98,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
         try:
             # Validate token and extract payload
             payload = self.jwt_handler.decode_token(token)
-            # Add user info to request state for use in endpoints
-            request.state.user = payload
-            self.logger.info("Authentication successful", path=request.url.path, user=payload.get("sub"))
+            user_id = payload.get("user_id")
+
+            # Load User ORM instance from database (NOT dict from token)
+            async with DatabaseContext() as db:
+                user = await db.users.get_by_id(user_id)
+                if user is None:
+                    self.logger.warning("User not found in database", user_id=user_id, path=request.url.path)
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User not found",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+
+                # Set User ORM instance (NOT dictionary)
+                request.state.user = user
+                self.logger.info("User authenticated", user_id=user.uid, username=user.username, path=request.url.path)
         except jwt.ExpiredSignatureError:
             self.logger.warning("Token expired", path=request.url.path)
             raise HTTPException(
