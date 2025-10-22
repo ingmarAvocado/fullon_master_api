@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
 
+from .auth.middleware import JWTMiddleware
 from .config import settings
 from .routers.auth import router as auth_router
 
@@ -62,6 +63,11 @@ class MasterGateway:
             "CORS middleware configured",
             origins=settings.cors_origins,
         )
+
+        # Add JWT authentication middleware
+        app.add_middleware(JWTMiddleware, secret_key=settings.jwt_secret_key)
+
+        logger.info("JWT middleware configured")
 
         # Basic health endpoint (no auth required)
         @app.get("/health")

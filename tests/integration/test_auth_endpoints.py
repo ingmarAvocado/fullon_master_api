@@ -137,25 +137,18 @@ async def test_verify_endpoint():
             email=mock_user.email
         )
 
-        with patch(
-            'fullon_master_api.auth.dependencies.DatabaseContext'
-        ) as mock_db_context:
-            mock_db = AsyncMock()
-            mock_db.users.get_by_email.return_value = mock_user
-            mock_db_context.return_value.__aenter__.return_value = mock_db
+        response = await client.get(
+            "/api/v1/auth/verify",
+            headers={"Authorization": f"Bearer {valid_token}"}
+        )
 
-            response = await client.get(
-                "/api/v1/auth/verify",
-                headers={"Authorization": f"Bearer {valid_token}"}
-            )
+        assert response.status_code == 200
+        data = response.json()
 
-            assert response.status_code == 200
-            data = response.json()
-
-            assert data["user_id"] == mock_user.uid
-            assert data["username"] == mock_user.username
-            assert data["email"] == mock_user.email
-            assert data["is_active"] is True
+        assert data["user_id"] == mock_user.uid
+        assert data["username"] == mock_user.username
+        assert data["email"] == mock_user.email
+        assert data["is_active"] is True
 
         # Test invalid token
         response = await client.get(

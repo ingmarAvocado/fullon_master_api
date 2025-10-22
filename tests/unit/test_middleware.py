@@ -31,10 +31,10 @@ async def test_jwt_middleware():
     This test should pass when the implementation is complete.
     """
     from unittest.mock import AsyncMock, MagicMock, patch
+
     from fastapi import Request
-    from starlette.responses import JSONResponse
-    from fullon_master_api.auth.middleware import JWTMiddleware
     from fullon_master_api.auth.jwt import JWTHandler
+    from fullon_master_api.auth.middleware import JWTMiddleware
     from fullon_master_api.config import settings
     from starlette.responses import JSONResponse
 

@@ -15,6 +15,7 @@ from fullon_orm import DatabaseContext
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+from ..config import settings
 from .jwt import JWTHandler
 
 
@@ -209,8 +210,8 @@ class JWTMiddleware(BaseHTTPMiddleware):
             "/redoc",
             "/openapi.json",
             "/health",
-            "/auth/login",
-            "/auth/verify"
+            f"{settings.api_prefix}/auth/login",
+            f"{settings.api_prefix}/auth/verify"
         ]
         self.logger.info("JWT middleware initialized", excluded_paths_count=len(self.exclude_paths))
 

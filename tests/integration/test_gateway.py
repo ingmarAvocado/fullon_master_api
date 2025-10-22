@@ -1,16 +1,10 @@
 """
-Test stubs for test_gateway.py
+Integration tests for gateway functionality.
 
-Auto-generated from phase manifest.
-Each test corresponds to a GitHub issue.
-
-Tests initially use pytest.skip() and should be implemented
-as part of the TDD workflow.
+Tests middleware integration and application composition.
 """
-import pytest
-
-# Import modules under test
-# TODO: Add imports as implementation progresses
+from fullon_master_api.auth.middleware import JWTMiddleware
+from fullon_master_api.gateway import MasterGateway
 
 
 def test_middleware_integration():
@@ -27,6 +21,26 @@ def test_middleware_integration():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #12")
+    # Create gateway instance
+    gateway = MasterGateway()
+    app = gateway.get_app()
+
+    # Verify JWTMiddleware is added to the application
+    middleware_classes = [middleware.cls for middleware in app.user_middleware]
+    assert JWTMiddleware in middleware_classes, "JWTMiddleware not found in app middlewares"
+
+    # Verify middleware order - JWT runs before CORS in the middleware stack
+    from fastapi.middleware.cors import CORSMiddleware
+    cors_index = None
+    jwt_index = None
+
+    for i, middleware in enumerate(app.user_middleware):
+        if middleware.cls == CORSMiddleware:
+            cors_index = i
+        elif middleware.cls == JWTMiddleware:
+            jwt_index = i
+
+    assert cors_index is not None, "CORSMiddleware not found"
+    assert jwt_index is not None, "JWTMiddleware not found"
+    assert jwt_index < cors_index, "JWTMiddleware should run before CORSMiddleware"
 

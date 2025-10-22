@@ -3,7 +3,7 @@ Authentication router for Fullon Master API.
 
 Provides JWT token-based authentication endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
 from fullon_log import get_component_logger
 from fullon_orm.models import User
@@ -26,10 +26,10 @@ logger = get_component_logger("fullon.master_api.auth")
 
 
 async def get_current_user_dependency(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    request: Request
 ) -> User:
-    """Dependency to get current user with configured secret key."""
-    return await get_current_user(credentials, secret_key=settings.jwt_secret_key)
+    """Dependency to get current user from request state."""
+    return await get_current_user(request)
 
 
 @router.post("/login")
@@ -85,13 +85,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> dict:
 
 @router.get("/verify")
 async def verify_token(
-    current_user: User = Depends(get_current_user_dependency)
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())
 ) -> dict:
     """
-    Verify JWT token and return current user information.
+    Verify JWT token and return user information.
 
     Args:
-        current_user: Authenticated user from JWT token
+        credentials: HTTP authorization credentials containing JWT token
 
     Returns:
         Dictionary containing user information
@@ -99,11 +99,32 @@ async def verify_token(
     Raises:
         HTTPException: 401 if token is invalid or expired
     """
-    logger.info("Token verification successful", user_id=current_user.uid)
+    jwt_handler = JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
+
+    # Verify token
+    payload = jwt_handler.verify_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Extract user info from payload
+    user_id = payload.get("user_id")
+    username = payload.get("username")
+    email = payload.get("email")
+
+    if not all([user_id, username, email]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return {
-        "user_id": current_user.uid,
-        "username": current_user.username,
-        "email": current_user.email,
-        "is_active": True  # Assuming user is active if authenticated
+        "user_id": user_id,
+        "username": username,
+        "email": email,
+        "is_active": True,
     }

@@ -86,3 +86,188 @@
 2025-10-22 04:50:15.214 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
 2025-10-22 04:50:15.214 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Not enough segments
 2025-10-22 04:50:15.214 | ERROR    | fullon_master_api.auth.dependencies | 169 | Invalid token error=Not enough segments
+2025-10-22 15:27:47.721 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 15:27:48.022 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.037 | INFO     | fullon_master_api.gateway | 61 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 15:27:48.046 | INFO     | fullon_master_api.gateway | 90 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 15:27:48.046 | INFO     | fullon_master_api.gateway | 37 | Master API Gateway initialized
+2025-10-22 15:27:48.231 | INFO     | fullon_master_api.gateway | 61 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 15:27:48.252 | INFO     | fullon_master_api.gateway | 90 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 15:27:48.253 | INFO     | fullon_master_api.gateway | 37 | Master API Gateway initialized
+2025-10-22 15:27:48.562 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=testuser
+2025-10-22 15:27:48.563 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 15:27:48.564 | INFO     | fullon_master_api.routers.auth | 73 | Login successful username=testuser user_id=123
+2025-10-22 15:27:48.567 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=testuser
+2025-10-22 15:27:48.568 | WARNING  | fullon_master_api.routers.auth | 55 | Login failed username=testuser reason=invalid_credentials
+2025-10-22 15:27:48.575 | INFO     | fullon_master_api.gateway | 61 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 15:27:48.586 | INFO     | fullon_master_api.gateway | 90 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 15:27:48.586 | INFO     | fullon_master_api.gateway | 37 | Master API Gateway initialized
+2025-10-22 15:27:48.586 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.587 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 15:27:48.591 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.593 | INFO     | fullon_master_api.routers.auth | 102 | Token verification successful user_id=123
+2025-10-22 15:27:48.595 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.595 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Not enough segments
+2025-10-22 15:27:48.596 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=invalid
+2025-10-22 15:27:48.596 | WARNING  | fullon_master_api.auth.dependencies | 142 | Token verification failed
+2025-10-22 15:27:48.629 | WARNING  | fullon_master_api.auth.dependencies | 142 | Token verification failed
+2025-10-22 15:27:48.631 | ERROR    | fullon_master_api.auth.dependencies | 151 | Token missing 'sub' claim
+2025-10-22 15:27:48.632 | WARNING  | fullon_master_api.auth.dependencies | 162 | User not found in database username=test@example.com
+2025-10-22 15:27:48.637 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.637 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 15:27:48.639 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.639 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=456
+2025-10-22 15:27:48.640 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Invalid header string: 'utf-8' codec can't decode byte 0x8a in position 0: invalid start byte
+2025-10-22 15:27:48.640 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Signature has expired
+2025-10-22 15:27:48.642 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:48.642 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=789
+2025-10-22 15:27:48.643 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Invalid header string: 'utf-8' codec can't decode byte 0x8a in position 0: invalid start byte
+2025-10-22 15:27:48.643 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=invalid
+2025-10-22 15:27:48.644 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Signature has expired
+2025-10-22 15:27:48.644 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=expired
+2025-10-22 15:27:51.028 | ERROR    | fullon_master_api.auth.jwt | 224 | Password verification failed error=Invalid salt
+2025-10-22 15:27:51.576 | INFO     | fullon_master_api.auth.jwt | 262 | Authentication successful username=test@example.com success=True uid=123
+2025-10-22 15:27:51.580 | INFO     | fullon_master_api.auth.jwt | 246 | Authentication failed - user not found username=nonexistent@example.com success=False
+2025-10-22 15:27:51.863 | INFO     | fullon_master_api.auth.jwt | 255 | Authentication failed - invalid password username=test@example.com success=False
+2025-10-22 15:27:51.866 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:51.867 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:27:51.867 | INFO     | fullon_master_api.auth.middleware | 215 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 15:27:51.867 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 15:27:51.872 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Not enough segments
+2025-10-22 15:27:51.872 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=invalid
+2025-10-22 15:36:16.169 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 15:36:16.289 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 15:36:16.293 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 15:36:16.293 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 15:36:16.297 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 15:36:16.297 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 15:36:16.298 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 15:36:16.298 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 15:36:16.303 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 15:36:16.303 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:44:52.107 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:44:52.200 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:44:52.203 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:44:52.203 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:44:52.206 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:44:52.207 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:44:52.222 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:44:52.222 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:44:54.350 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:44:54.447 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:44:54.450 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:44:54.450 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:44:54.453 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:44:54.454 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:44:54.458 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:44:54.458 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:44:56.707 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:44:56.823 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:44:56.826 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:44:56.827 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:44:56.830 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:44:56.830 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:44:56.834 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:44:56.834 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:45:20.449 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:45:20.544 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:20.548 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:20.548 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:20.551 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:20.551 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:34.496 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:45:34.591 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:34.595 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:34.595 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:34.598 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:34.598 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:34.602 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:34.602 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:45:34.608 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=test
+2025-10-22 19:45:34.608 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:45:34.702 | INFO     | fullon_master_api.auth.jwt | 246 | Authentication failed - user not found username=test success=False
+2025-10-22 19:45:34.702 | WARNING  | fullon_master_api.routers.auth | 55 | Login failed username=test reason=invalid_credentials
+2025-10-22 19:45:47.829 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:45:47.918 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:47.922 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:47.922 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:47.925 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:47.926 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:55.254 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:45:55.461 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.469 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:55.469 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:55.478 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:55.478 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:55.563 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:55.563 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:55.571 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:55.572 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:55.826 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.826 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:45:55.835 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=testuser
+2025-10-22 19:45:55.836 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 19:45:55.837 | INFO     | fullon_master_api.routers.auth | 73 | Login successful username=testuser user_id=123
+2025-10-22 19:45:55.840 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=testuser
+2025-10-22 19:45:55.840 | WARNING  | fullon_master_api.routers.auth | 55 | Login failed username=testuser reason=invalid_credentials
+2025-10-22 19:45:55.844 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:55.844 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:55.850 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:55.851 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:55.851 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.852 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 19:45:55.852 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.852 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:45:55.853 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.854 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.855 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Not enough segments
+2025-10-22 19:45:55.855 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=invalid
+2025-10-22 19:45:55.861 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:45:55.861 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:45:55.867 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:45:55.867 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:45:55.877 | WARNING  | fullon_master_api.auth.dependencies | 136 | User not authenticated
+2025-10-22 19:45:55.880 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.880 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 19:45:55.882 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.882 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=456
+2025-10-22 19:45:55.883 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Invalid header string: 'utf-8' codec can't decode byte 0x8a in position 0: invalid start byte
+2025-10-22 19:45:55.883 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Signature has expired
+2025-10-22 19:45:55.885 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:55.885 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=789
+2025-10-22 19:45:55.886 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Invalid header string: 'utf-8' codec can't decode byte 0x8a in position 0: invalid start byte
+2025-10-22 19:45:55.886 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=invalid
+2025-10-22 19:45:55.886 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Signature has expired
+2025-10-22 19:45:55.886 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=expired
+2025-10-22 19:45:57.908 | ERROR    | fullon_master_api.auth.jwt | 224 | Password verification failed error=Invalid salt
+2025-10-22 19:45:58.453 | INFO     | fullon_master_api.auth.jwt | 262 | Authentication successful username=test@example.com success=True uid=123
+2025-10-22 19:45:58.457 | INFO     | fullon_master_api.auth.jwt | 246 | Authentication failed - user not found username=nonexistent@example.com success=False
+2025-10-22 19:45:58.727 | INFO     | fullon_master_api.auth.jwt | 255 | Authentication failed - invalid password username=test@example.com success=False
+2025-10-22 19:45:58.730 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:58.730 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:45:58.730 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:45:58.730 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=123
+2025-10-22 19:45:58.734 | WARNING  | fullon_master_api.auth.jwt | 118 | Token decode failed error=Not enough segments
+2025-10-22 19:45:58.734 | WARNING  | fullon_master_api.auth.jwt | 137 | Token verification failed reason=invalid
+2025-10-22 19:46:12.283 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:46:12.400 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:46:12.404 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:46:12.404 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:46:12.408 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:46:12.408 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:46:12.408 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:46:12.408 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:46:12.411 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:46:12.412 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:46:35.732 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:46:35.828 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:46:35.832 | INFO     | fullon_master_api.gateway | 62 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-22 19:46:35.832 | INFO     | fullon_master_api.gateway | 70 | JWT middleware configured
+2025-10-22 19:46:35.835 | INFO     | fullon_master_api.gateway | 96 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-22 19:46:35.835 | INFO     | fullon_master_api.gateway | 38 | Master API Gateway initialized
+2025-10-22 19:46:35.840 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-22 19:46:35.840 | INFO     | fullon_master_api.auth.middleware | 216 | JWT middleware initialized excluded_paths_count=7
+2025-10-22 19:46:35.841 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=test
+2025-10-22 19:46:35.841 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-22 19:46:35.908 | INFO     | fullon_master_api.auth.jwt | 246 | Authentication failed - user not found username=test success=False
+2025-10-22 19:46:35.908 | WARNING  | fullon_master_api.routers.auth | 55 | Login failed username=test reason=invalid_credentials

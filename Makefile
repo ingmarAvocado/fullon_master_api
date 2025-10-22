@@ -52,7 +52,7 @@ dev-setup: setup
 # Development commands
 run:
 	@echo "Starting Fullon Master API..."
-	poetry run uvicorn fullon_master_api.main:app --reload --host 0.0.0.0 --port 8000
+	poetry run uvicorn fullon_master_api:app --reload --host 0.0.0.0 --port 8000
 
 test:
 	@echo "Running test suite..."
