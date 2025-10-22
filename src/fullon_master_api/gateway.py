@@ -7,6 +7,7 @@ Follows ADR-001: Router Composition Over Direct Library Usage.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
+from fullon_orm_api import get_all_routers as get_orm_routers
 
 from .auth.middleware import JWTMiddleware
 from .config import settings
@@ -100,6 +101,25 @@ class MasterGateway:
         )
 
         return app
+
+    def _discover_orm_routers(self) -> list:
+        """
+        Discover ORM API routers from fullon_orm_api.
+
+        Returns:
+            List of APIRouter instances from fullon_orm_api
+        """
+        orm_routers = get_orm_routers()
+        logger.info("Discovered ORM routers", count=len(orm_routers))
+
+        for router in orm_routers:
+            logger.debug(
+                "ORM router discovered",
+                prefix=getattr(router, 'prefix', None),
+                tags=getattr(router, 'tags', [])
+            )
+
+        return orm_routers
 
     def get_app(self) -> FastAPI:
         """
