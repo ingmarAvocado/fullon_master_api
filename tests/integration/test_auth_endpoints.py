@@ -97,7 +97,8 @@ async def test_login_endpoint():
 
 
 
-def test_verify_endpoint():
+@pytest.mark.asyncio
+async def test_verify_endpoint():
     """
     Test for Issue #9: [Phase 2] Implement GET /api/v1/auth/verify endpoint
 
@@ -112,6 +113,64 @@ def test_verify_endpoint():
 
     This test should pass when the implementation is complete.
     """
-    # TODO: Implement test
-    pytest.skip("Test not yet implemented - Issue #9")
+    from fullon_master_api.auth.jwt import JWTHandler
+    from httpx import AsyncClient
+
+    # Create test app
+    gateway = MasterGateway()
+    app = gateway.get_app()
+
+    # Create JWT handler for token generation
+    jwt_handler = JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
+
+    # Create mock user
+    mock_user = MagicMock()
+    mock_user.uid = 123
+    mock_user.username = "testuser"
+    mock_user.email = "test@example.com"
+
+    async with AsyncClient(app=app, base_url="http://testserver") as client:
+        # Test successful verification
+        valid_token = jwt_handler.generate_token(
+            user_id=mock_user.uid,
+            username=mock_user.username,
+            email=mock_user.email
+        )
+
+        with patch(
+            'fullon_master_api.auth.dependencies.DatabaseContext'
+        ) as mock_db_context:
+            mock_db = AsyncMock()
+            mock_db.users.get_by_email.return_value = mock_user
+            mock_db_context.return_value.__aenter__.return_value = mock_db
+
+            response = await client.get(
+                "/api/v1/auth/verify",
+                headers={"Authorization": f"Bearer {valid_token}"}
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["user_id"] == mock_user.uid
+            assert data["username"] == mock_user.username
+            assert data["email"] == mock_user.email
+            assert data["is_active"] is True
+
+        # Test invalid token
+        response = await client.get(
+            "/api/v1/auth/verify",
+            headers={"Authorization": "Bearer invalid_token"}
+        )
+
+        assert response.status_code == 401
+        data = response.json()
+        assert "detail" in data
+
+        # Test missing token
+        response = await client.get("/api/v1/auth/verify")
+
+        assert response.status_code == 403  # HTTPBearer returns 403 for missing credentials
+        data = response.json()
+        assert "detail" in data
 

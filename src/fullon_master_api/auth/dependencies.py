@@ -5,10 +5,11 @@ This module provides reusable dependencies for authentication
 and authorization in FastAPI endpoints.
 """
 
-from typing import Optional, Annotated
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Annotated
+
 import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fullon_log import get_component_logger
 from fullon_orm import DatabaseContext
 from fullon_orm.models import User
@@ -67,7 +68,7 @@ class AuthDependencies:
 
             # Fetch user from database using ORM
             async with DatabaseContext() as db:
-                user = await db.users.get_by_mail(username)
+                user = await db.users.get_by_email(username)
                 if user is None:
                     logger.warning("User not found in database", username=username)
                     raise HTTPException(
@@ -147,7 +148,7 @@ async def get_current_user(
 
         # Fetch user from database using ORM
         async with DatabaseContext() as db:
-            user = await db.users.get_by_mail(username)
+            user = await db.users.get_by_email(username)
             if user is None:
                 logger.warning("User not found in database", username=username)
                 raise HTTPException(
