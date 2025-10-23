@@ -9,14 +9,14 @@ Demonstrates:
 - Order and trade operations
 - Using ORM model instances (NOT dictionaries!)
 
-Expected Endpoints (from fullon_orm_api):
-- GET    /api/v1/users              - List users
-- GET    /api/v1/users/me           - Current user info
-- POST   /api/v1/users              - Create user
-- GET    /api/v1/bots               - List bots
-- POST   /api/v1/bots               - Create bot
-- GET    /api/v1/exchanges          - List exchanges
-- POST   /api/v1/orders             - Create order
+ Expected Endpoints (from fullon_orm_api):
+ - GET    /api/v1/orm/users          - List users
+ - GET    /api/v1/orm/users/me       - Current user info
+ - POST   /api/v1/orm/users          - Create user
+ - GET    /api/v1/orm/bots           - List bots
+ - POST   /api/v1/orm/bots           - Create bot
+ - GET    /api/v1/orm/exchanges      - List exchanges
+ - POST   /api/v1/orm/orders         - Create order
 
 Usage:
     python examples/example_orm_routes.py
