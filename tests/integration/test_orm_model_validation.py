@@ -23,6 +23,7 @@ async def test_get_current_user_returns_user_orm_model_not_dict():
     test_user = Mock(spec=User)
     test_user.uid = 1
     test_user.mail = "test@example.com"
+    test_user.username = "testuser"
     test_user.name = "Test"
     test_user.password = "hashed"
     test_user.f2a = ""

@@ -3,10 +3,11 @@ Tests validating fullon_log structured logging in ORM integration.
 
 Reference: docs/FULLON_LOG_LLM_REAMDE.md lines 75-90
 """
+from unittest.mock import patch
 from fullon_master_api.gateway import MasterGateway
 
 
-def test_gateway_uses_fullon_log_structured_logging(caplog):
+def test_gateway_uses_fullon_log_structured_logging():
     """
     Test that gateway uses fullon_log with structured logging (key=value).
 
@@ -14,12 +15,12 @@ def test_gateway_uses_fullon_log_structured_logging(caplog):
     """
     gateway = MasterGateway()
 
-    with caplog.at_level("INFO"):
+    with patch.object(gateway.logger, 'info') as mock_info:
         orm_routers = gateway._discover_orm_routers()
 
-    # Verify structured logging (key=value pattern)
-    assert "Discovered ORM routers" in caplog.text
-    assert f"count={len(orm_routers)}" in caplog.text
+    # Verify the logger.info was called with structured logging
+    assert any(call[0][0] == "Discovered ORM routers" and call[1].get('count') == len(orm_routers)
+               for call in mock_info.call_args_list)
 
 
 def test_gateway_logger_from_get_component_logger():
