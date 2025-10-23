@@ -9,11 +9,10 @@ Tests the complete flow:
 5. Response returned to client
 """
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_with_valid_token(client, auth_headers):
+async def test_get_current_user_with_valid_token(client, auth_headers, test_user):
     """
     Test GET /api/v1/orm/users/me with valid token.
 
@@ -25,33 +24,26 @@ async def test_get_current_user_with_valid_token(client, auth_headers):
     5. ORM endpoint gets user from request.state
     6. Returns user data
     """
-    # Mock the database call to return our test user
-    from pydantic import BaseModel
+    from unittest.mock import AsyncMock, patch
 
-    class MockUser(BaseModel):
-        uid: int = 1
-        mail: str = "testuser@example.com"
-        username: str = "testuser"
-        name: str = "Test"
-        lastname: str = "User"
-
-    mock_user = MockUser()
-
+    # Mock the middleware's database call to get_by_id
     with patch('fullon_master_api.auth.middleware.DatabaseContext') as mock_db_context:
         mock_db = AsyncMock()
-        mock_db.users.get_by_id.return_value = mock_user
+        mock_db.users.get_by_id.return_value = test_user
         mock_db_context.return_value.__aenter__.return_value = mock_db
 
         response = client.get("/api/v1/orm/users/me", headers=auth_headers)
 
-        # Should return 200 OK (if endpoint exists) or 404 (if not implemented)
-        assert response.status_code in [200, 404]
+        # Should return 200 OK
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            # Response should contain user data
-            user_data = response.json()
-            assert "uid" in user_data
-            assert "mail" in user_data
+        # Response should contain user data (ORM API returns dict representation)
+        user_data = response.json()
+        assert isinstance(user_data, dict)
+        assert "uid" in user_data
+        assert "mail" in user_data
+        assert user_data["mail"] == test_user.mail
+        assert user_data["uid"] == test_user.uid
 
 
 @pytest.mark.asyncio
@@ -75,7 +67,7 @@ async def test_get_current_user_without_token(client):
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_with_invalid_token(client, invalid_auth_headers):
+async def test_get_current_user_with_invalid_token(client):
     """
     Test GET /api/v1/orm/users/me with invalid token.
 
@@ -83,10 +75,43 @@ async def test_get_current_user_with_invalid_token(client, invalid_auth_headers)
     - 401 Unauthorized
     - Error message about invalid token
     """
-    response = client.get("/api/v1/orm/users/me", headers=invalid_auth_headers)
+    invalid_headers = {"Authorization": "Bearer invalid_token_12345"}
+    response = client.get("/api/v1/orm/users/me", headers=invalid_headers)
 
     # Should return 401 Unauthorized
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_with_expired_token(client, jwt_handler, test_user):
+    """
+    Test GET /api/v1/orm/users/me with expired token.
+
+    Expected:
+    - 401 Unauthorized
+    - Error message about expired token
+    """
+    from datetime import timedelta
+
+    # Create token that expires immediately
+    expired_token = jwt_handler.create_token(
+        {
+            "sub": test_user.mail,
+            "user_id": test_user.uid,
+            "scopes": ["read", "write"]
+        },
+        expires_delta=timedelta(seconds=-1)  # Already expired
+    )
+
+    headers = {"Authorization": f"Bearer {expired_token}"}
+    response = client.get("/api/v1/orm/users/me", headers=headers)
+
+    # Should return 401 Unauthorized
+    assert response.status_code == 401
+
+    # Response should indicate authentication failure
+    data = response.json()
+    assert "authenticated" in data["detail"].lower() or "authorization" in data["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -110,50 +135,30 @@ async def test_list_users_with_auth(client, auth_headers):
 
     Note: This may require admin privileges depending on ORM API implementation.
     """
-    # Mock the database call
-    with patch('fullon_master_api.auth.middleware.DatabaseContext') as mock_db_context:
-        mock_db = AsyncMock()
-        mock_db.users.get_by_email.return_value = Mock(uid=1, mail="testuser@example.com")
-        mock_db.users.get_all_users.return_value = [
-            Mock(uid=1, mail="testuser@example.com", name="Test"),
-            Mock(uid=2, mail="admin@example.com", name="Admin")
-        ]
-        mock_db_context.return_value.__aenter__.return_value = mock_db
+    response = client.get("/api/v1/orm/users", headers=auth_headers)
 
-        response = client.get("/api/v1/orm/users", headers=auth_headers)
+    # Should return 200 OK or 403 Forbidden (if not admin)
+    assert response.status_code in [200, 403]
 
-        # Should return 200 OK or 403 Forbidden (if not admin) or 404 (if not implemented)
-        assert response.status_code in [200, 403, 404]
-
-        if response.status_code == 200:
-            users = response.json()
-            assert isinstance(users, list)
+    if response.status_code == 200:
+        users = response.json()
+        assert isinstance(users, list)
 
 
 @pytest.mark.asyncio
-async def test_orm_endpoints_are_mounted(client):
+async def test_user_data_is_orm_model_not_dict(client, auth_headers):
     """
-    Test that ORM endpoints are mounted and accessible (even if they return 404).
+    Test that endpoint returns User ORM model data (not raw dict).
 
-    This validates that the mounting from Issue #17 worked.
+    Validates that dependency override correctly passes User model.
     """
-    # Test various potential ORM endpoints
-    endpoints_to_test = [
-        "/api/v1/orm/users",
-        "/api/v1/orm/users/me",
-        "/api/v1/orm/bots",
-        "/api/v1/orm/exchanges",
-        "/api/v1/orm/orders",
-        "/api/v1/orm/symbols"
-    ]
+    response = client.get("/api/v1/orm/users/me", headers=auth_headers)
 
-    for endpoint in endpoints_to_test:
-        response = client.get(endpoint)
-        # Should return 401 (auth required), 404 (not implemented), or 405 (method not allowed)
-        # Any of these indicate the endpoint is mounted
-        assert response.status_code in [401, 404, 405]
+    assert response.status_code == 200
 
-        if response.status_code == 401:
-            # If it returns 401, the endpoint is mounted and requires auth
-            data = response.json()
-            assert "detail" in data
+    user_data = response.json()
+
+    # User ORM model should have these fields
+    required_fields = ["uid", "mail", "name"]
+    for field in required_fields:
+        assert field in user_data, f"Missing required field: {field}"

@@ -5,9 +5,6 @@ Tests validate complete workflows using actual example scripts.
 """
 import subprocess
 import sys
-import time
-import requests
-import pytest
 from pathlib import Path
 
 

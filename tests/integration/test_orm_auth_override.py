@@ -4,12 +4,10 @@ Integration tests for ORM auth dependency override.
 Tests that fullon_orm_api's auth dependencies are correctly
 overridden with master API's JWT authentication.
 """
-import pytest
-from fastapi import APIRouter
-from fullon_orm_api import get_all_routers
-from fullon_orm_api.dependencies.auth import get_current_user as orm_get_current_user
 from fullon_master_api.auth.dependencies import get_current_user as master_get_current_user
 from fullon_master_api.gateway import MasterGateway
+from fullon_orm_api import get_all_routers
+from fullon_orm_api.dependencies.auth import get_current_user as orm_get_current_user
 
 
 def test_orm_and_master_get_current_user_are_different():

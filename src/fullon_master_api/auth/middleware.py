@@ -114,7 +114,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
                 # Set User ORM instance (NOT dictionary)
                 request.state.user = user
-                self.logger.info("User authenticated", user_id=user.uid, username=user.username, path=request.url.path)
+                self.logger.info("User authenticated", user_id=user.uid, email=user.mail, path=request.url.path)
         except jwt.ExpiredSignatureError:
             self.logger.warning("Token expired", path=request.url.path)
             raise HTTPException(
@@ -255,7 +255,7 @@ class JWTMiddleware(BaseHTTPMiddleware):
                         if user:
                             # Set User ORM instance (NOT dict)
                             request.state.user = user
-                            self.logger.debug("User authenticated", user_id=user.uid, username=user.username, path=request.url.path)
+                            self.logger.debug("User authenticated", user_id=user.uid, email=user.mail, path=request.url.path)
                         else:
                             self.logger.warning("User not found in database", user_id=user_id, path=request.url.path)
                 else:

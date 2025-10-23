@@ -1,10 +1,19 @@
 """
 Shared fixtures for integration tests.
+
+This extends the base conftest.py with integration-specific fixtures:
+- Gateway and client fixtures for FastAPI testing
+- JWT token generation for authenticated tests
+- Real database user creation using factories
 """
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from fullon_master_api.gateway import MasterGateway
 from fullon_master_api.auth.jwt import JWTHandler
+from fullon_master_api.gateway import MasterGateway
+
+# Import factories
+from tests.factories import UserFactory
 
 
 @pytest.fixture
@@ -26,45 +35,53 @@ def jwt_handler():
     return JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
 
 
-@pytest.fixture
-def test_user():
-    """Create test user data (mock - since we can't easily create real ORM instances in tests)."""
-    from unittest.mock import Mock
-    from fullon_orm.models import User
+@pytest_asyncio.fixture
+async def test_user(db_context, worker_id):
+    """Create test user using UserFactory.
 
-    # Create a mock User object (since we can't easily create real ORM instances in tests)
-    mock_user = Mock(spec=User)
-    mock_user.uid = 1
-    mock_user.mail = "testuser@example.com"
-    mock_user.name = "Test"
-    mock_user.username = "testuser"
-    mock_user.lastname = "User"
-    return mock_user
+    Uses the factory pattern for clean, maintainable test data creation.
+    The user is automatically rolled back after the test completes.
 
+    Uses worker_id for parallel execution isolation.
 
-@pytest.fixture
-def valid_token(jwt_handler, test_user):
-    """Create valid JWT token for test user."""
-    return jwt_handler.generate_token(
-        user_id=test_user.uid,
-        username=test_user.username,
-        email=test_user.mail
+    Returns:
+        User: Persisted User model instance with uid assigned
+    """
+    # Worker-specific email for parallel execution
+    email_suffix = f"_{worker_id}" if worker_id != "master" else ""
+    email = f"testuser{email_suffix}@example.com"
+
+    # Check if user already exists (from previous test)
+    try:
+        existing_user = await db_context.users.get_by_email(email)
+        if existing_user:
+            return existing_user
+    except Exception:
+        pass  # User doesn't exist, create it
+
+    # Create user using factory with repository (commits for middleware visibility)
+    user = await UserFactory.create_with_repository(
+        db_context=db_context,
+        email=email,
+        name="Test",
+        lastname="User",
+        password="hashed_password_123"
     )
 
+    return user
 
-@pytest.fixture
-def auth_headers(valid_token):
+
+@pytest_asyncio.fixture
+async def valid_token(jwt_handler, test_user):
+    """Create valid JWT token for test user."""
+    return jwt_handler.create_token({
+        "sub": test_user.mail,
+        "user_id": test_user.uid,
+        "scopes": ["read", "write"]
+    })
+
+
+@pytest_asyncio.fixture
+async def auth_headers(valid_token):
     """Create authorization headers with valid token."""
     return {"Authorization": f"Bearer {valid_token}"}
-
-
-@pytest.fixture
-def invalid_token():
-    """Create invalid token for testing."""
-    return "invalid_token_12345"
-
-
-@pytest.fixture
-def invalid_auth_headers(invalid_token):
-    """Create authorization headers with invalid token."""
-    return {"Authorization": f"Bearer {invalid_token}"}

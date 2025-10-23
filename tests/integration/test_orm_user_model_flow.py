@@ -4,9 +4,9 @@ Integration tests for User model flow through dependencies.
 Tests that both ORM and master get_current_user dependencies
 return User ORM model instances (NOT dictionaries).
 """
-import pytest
 from unittest.mock import Mock
-from fullon_orm.models import User
+
+import pytest
 from fullon_master_api.auth.dependencies import get_current_user as master_get_current_user
 
 
