@@ -248,10 +248,11 @@ async def drop_dual_test_databases(orm_db_name: str, ohlcv_db_name: str) -> bool
 @asynccontextmanager
 async def database_context_for_test(db_name: str):
     """Context manager for test database lifecycle (following fullon_orm_api pattern)"""
-    # Set environment variable for this test database
-    original_db_name = os.getenv('DATABASE_URL', '')
+    # Save original environment variables
+    original_db_url = os.getenv('DATABASE_URL', '')
+    original_db_name = os.getenv('DB_NAME', '')
 
-    # Update DATABASE_URL to point to test database
+    # Update DATABASE_URL and DB_NAME to point to test database
     host = os.getenv("DB_HOST", "localhost")
     port = int(os.getenv("DB_PORT", "5432"))
     user = os.getenv("DB_USER", "postgres")
@@ -285,11 +286,16 @@ async def database_context_for_test(db_name: str):
         yield db_name
 
     finally:
-        # Restore original DATABASE_URL
-        if original_db_name:
-            os.environ['DATABASE_URL'] = original_db_name
+        # Restore original environment variables
+        if original_db_url:
+            os.environ['DATABASE_URL'] = original_db_url
         else:
             os.environ.pop('DATABASE_URL', None)
+
+        if original_db_name:
+            os.environ['DB_NAME'] = original_db_name
+        else:
+            os.environ.pop('DB_NAME', None)
 
         # Drop test database
         await drop_test_database(db_name)

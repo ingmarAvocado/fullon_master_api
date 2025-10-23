@@ -22,13 +22,50 @@ Usage:
     python examples/example_orm_routes.py
 """
 import asyncio
-import httpx
 from typing import Optional
+
+import httpx
 from fullon_log import get_component_logger
 
 logger = get_component_logger("fullon.examples.orm_routes")
 
 API_BASE_URL = "http://localhost:8000"
+
+
+async def login_and_get_token(username: str = "admin", password: str = "admin") -> Optional[str]:
+    """
+    Login and get JWT token for authenticated requests.
+
+    Args:
+        username: Login username
+        password: Login password
+
+    Returns:
+        JWT token string or None if login failed
+    """
+    login_url = f"{API_BASE_URL}/api/v1/auth/login"
+
+    login_data = {
+        "username": username,
+        "password": password,
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                login_url,
+                data=login_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response.raise_for_status()
+
+            token_data = response.json()
+            logger.info("Login successful for ORM example", username=username)
+            return token_data["access_token"]
+
+        except Exception as e:
+            logger.error("Login failed for ORM example", error=str(e))
+            return None
 
 
 class ORMAPIClient:
@@ -47,7 +84,7 @@ class ORMAPIClient:
 
     async def get_current_user(self) -> Optional[dict]:
         """Get current authenticated user info."""
-        url = f"{self.base_url}/api/v1/users/me"
+        url = f"{self.base_url}/api/v1/orm/users/me"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -60,7 +97,7 @@ class ORMAPIClient:
 
     async def list_users(self) -> Optional[list]:
         """List all users (admin only)."""
-        url = f"{self.base_url}/api/v1/users"
+        url = f"{self.base_url}/api/v1/orm/users"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -87,7 +124,7 @@ class ORMAPIClient:
                     "id_num": ""
                 }
         """
-        url = f"{self.base_url}/api/v1/users"
+        url = f"{self.base_url}/api/v1/orm/users"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -102,7 +139,7 @@ class ORMAPIClient:
 
     async def list_bots(self) -> Optional[list]:
         """List all bots for current user."""
-        url = f"{self.base_url}/api/v1/bots"
+        url = f"{self.base_url}/api/v1/orm/bots"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -125,7 +162,7 @@ class ORMAPIClient:
                     "dry_run": true
                 }
         """
-        url = f"{self.base_url}/api/v1/bots"
+        url = f"{self.base_url}/api/v1/orm/bots"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -152,7 +189,7 @@ class ORMAPIClient:
                     "status": "New"
                 }
         """
-        url = f"{self.base_url}/api/v1/orders"
+        url = f"{self.base_url}/api/v1/orm/orders"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -164,14 +201,13 @@ class ORMAPIClient:
                 return None
 
 
-async def example_user_management():
+async def example_user_management(token: str):
     """Demonstrate user management endpoints."""
     print("\n" + "=" * 60)
     print("Example: User Management (ORM API)")
     print("=" * 60)
 
-    # This would normally have a JWT token from login
-    client = ORMAPIClient()
+    client = ORMAPIClient(token=token)
 
     print("\n1️⃣  Getting current user info...")
     user = await client.get_current_user()
@@ -193,13 +229,13 @@ async def example_user_management():
         print("   ❌ Endpoint not yet implemented")
 
 
-async def example_bot_management():
+async def example_bot_management(token: str):
     """Demonstrate bot management endpoints."""
     print("\n" + "=" * 60)
     print("Example: Bot Management (ORM API)")
     print("=" * 60)
 
-    client = ORMAPIClient()
+    client = ORMAPIClient(token=token)
 
     print("\n1️⃣  Listing user's bots...")
     bots = await client.list_bots()
@@ -228,13 +264,13 @@ async def example_bot_management():
         print("   ❌ Endpoint not yet implemented")
 
 
-async def example_order_creation():
+async def example_order_creation(token: str):
     """Demonstrate order creation (CRITICAL: use 'volume' not 'amount')."""
     print("\n" + "=" * 60)
     print("Example: Order Creation (ORM API)")
     print("=" * 60)
 
-    client = ORMAPIClient()
+    client = ORMAPIClient(token=token)
 
     print("\n1️⃣  Creating market order...")
     print("   ⚠️  IMPORTANT: ORM uses 'volume' field, NOT 'amount'!")
@@ -267,14 +303,25 @@ async def main():
     print("Fullon Master API - ORM Routes Example")
     print("=" * 60)
 
+    # Step 1: Login and get JWT token
+    print("\n🔐 Authenticating...")
+    token = await login_and_get_token()
+
+    if not token:
+        print("❌ Authentication failed - cannot run ORM examples")
+        print("   Make sure the server is running and auth is configured")
+        return
+
+    print("✅ Authentication successful")
+
     # Example 1: User management
-    await example_user_management()
+    await example_user_management(token)
 
     # Example 2: Bot management
-    await example_bot_management()
+    await example_bot_management(token)
 
     # Example 3: Order creation
-    await example_order_creation()
+    await example_order_creation(token)
 
     print("\n" + "=" * 60)
     print("💡 Key Points:")
