@@ -8,7 +8,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
 from fullon_orm_api import get_all_routers as get_orm_routers
+from fullon_orm_api.dependencies.auth import get_current_user as orm_get_current_user
 
+from .auth.dependencies import get_current_user as master_get_current_user
 from .auth.middleware import JWTMiddleware
 from .config import settings
 from .routers.auth import router as auth_router
@@ -104,10 +106,10 @@ class MasterGateway:
 
     def _discover_orm_routers(self) -> list:
         """
-        Discover ORM API routers from fullon_orm_api.
+        Discover ORM API routers and apply auth overrides.
 
         Returns:
-            List of APIRouter instances from fullon_orm_api
+            List of APIRouter instances with auth overrides applied
         """
         orm_routers = get_orm_routers()
 
@@ -121,7 +123,48 @@ class MasterGateway:
                 tags=getattr(router, 'tags', [])
             )
 
+        # Apply auth dependency overrides (NEW in Issue #16)
+        orm_routers = self._apply_auth_overrides(orm_routers)
+
         return orm_routers
+
+    def _apply_auth_overrides(self, routers: list) -> list:
+        """
+        Apply auth dependency overrides to ORM routers.
+
+        Overrides fullon_orm_api's get_current_user dependency with
+        master API's version that reads from request.state.user.
+
+        Critical: Both dependencies return User ORM model instances (NOT dictionaries).
+        Reference: docs/FULLON_ORM_LLM_README.md lines 1-9
+
+        Args:
+            routers: List of APIRouter instances from fullon_orm_api
+
+        Returns:
+            List of routers with auth overrides applied
+        """
+        for router in routers:
+            # Initialize dependency_overrides if it doesn't exist
+            if not hasattr(router, 'dependency_overrides'):
+                router.dependency_overrides = {}
+
+            # Override ORM API's get_current_user with master API's version
+            router.dependency_overrides[orm_get_current_user] = master_get_current_user
+
+            # Structured logging (key=value pattern from fullon_log)
+            self.logger.debug(
+                "Auth dependency overridden for ORM router",
+                prefix=getattr(router, 'prefix', None),
+                override_count=len(router.dependency_overrides)
+            )
+
+        self.logger.info(
+            "Auth overrides applied to ORM routers",
+            router_count=len(routers)
+        )
+
+        return routers
 
     def get_app(self) -> FastAPI:
         """
