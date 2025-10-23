@@ -195,9 +195,10 @@ class TestApiKeyAuthIntegration:
         assert api_key_user_data["mail"] == test_user.mail
         assert api_key_user_data["name"] == test_user.name
 
-        # Test with JWT (skip if connection issues persist - core functionality verified above)
-        # The API key test above already verifies the middleware sets request.state.user correctly
-        # JWT functionality is tested separately in other tests
+        # Test with JWT - removed due to database connection lifecycle issues in test environment
+        # JWT functionality is verified separately in test_jwt_authentication_still_works
+        # API key functionality above confirms middleware sets request.state.user correctly
+        # TODO: Re-enable JWT comparison when test database isolation is improved
 
     @pytest.mark.asyncio
     async def test_api_key_usage_tracking(
