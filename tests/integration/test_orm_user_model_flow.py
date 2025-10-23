@@ -14,11 +14,16 @@ from fullon_master_api.auth.dependencies import get_current_user as master_get_c
 async def test_master_get_current_user_returns_user_model():
     """Test that master get_current_user returns User ORM model."""
     # Create a mock User object (since we can't easily create real ORM instances in tests)
-    mock_user = Mock()
-    mock_user.uid = 1
-    mock_user.mail = "test@example.com"
-    mock_user.name = "Test User"
-    mock_user.username = "testuser"  # Required for logging
+    from pydantic import BaseModel
+
+    class MockUser(BaseModel):
+        uid: int = 1
+        mail: str = "test@example.com"
+        username: str = "testuser"
+        name: str = "Test User"
+        lastname: str = "User"
+
+    mock_user = MockUser()
 
     # Mock request with user in state
     request = Mock()
