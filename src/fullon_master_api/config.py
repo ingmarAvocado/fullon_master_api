@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60
 
+    # API Key Authentication
+    enable_api_key_auth: bool = True
+    api_key_header_name: str = "X-API-Key"
+
     # CORS Configuration
     cors_origins: List[str] = ["*"]
     cors_allow_credentials: bool = True

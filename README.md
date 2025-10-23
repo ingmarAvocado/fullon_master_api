@@ -198,6 +198,10 @@ All configuration is via environment variables (`.env` file):
 # JWT Authentication
 JWT_SECRET_KEY=your-secret-key-here
 
+# API Key Authentication
+ENABLE_API_KEY_AUTH=true
+API_KEY_HEADER_NAME=X-API-Key
+
 # Database (fullon_orm)
 DB_USER=postgres
 DB_PASSWORD=your-password
@@ -209,6 +213,23 @@ REDIS_PORT=6379
 ```
 
 See `.env.example` for complete configuration options.
+
+### Authentication
+
+The Fullon Master API supports **dual authentication** - both JWT tokens and API keys:
+
+#### JWT Authentication
+- **Header**: `Authorization: Bearer <jwt_token>`
+- **Login endpoint**: `POST /api/v1/auth/login`
+- **User sessions**: Interactive web/mobile clients
+
+#### API Key Authentication
+- **Header**: `X-API-Key: <api_key>`
+- **Format**: `fullon_ak_{base64url_string}` (e.g., `fullon_ak_dGVzdF9hcGlfa2V5XzEyMzQ1Njc4OTA`)
+- **Management**: Via ORM API endpoints (`/api/v1/orm/api_keys/*`)
+- **Use case**: Programmatic access, bots, scripts
+
+**Both methods provide identical access** and set `request.state.user` in the same format.
 
 ## Development Roadmap
 

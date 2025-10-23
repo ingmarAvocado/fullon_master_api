@@ -28,6 +28,7 @@ import example_authenticated_request
 import example_orm_routes
 import example_ohlcv_routes
 import example_cache_websocket
+import example_api_key_auth
 
 
 async def run_example(name: str, coro) -> Tuple[str, bool, str]:
@@ -90,6 +91,11 @@ async def run_all(skip_websocket: bool = False):
     # Example 4: Authenticated Requests
     results.append(
         await run_example("Authenticated Requests", example_authenticated_request.main())
+    )
+
+    # Example 4.5: API Key Authentication
+    results.append(
+        await run_example("API Key Authentication", example_api_key_auth.main())
     )
 
     # Example 5: ORM Routes

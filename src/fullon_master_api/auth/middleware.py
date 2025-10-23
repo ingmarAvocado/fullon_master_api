@@ -16,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from ..config import settings
+from .api_key_validator import ApiKeyValidator
 from .jwt import JWTHandler
 
 
@@ -204,6 +205,7 @@ class JWTMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.logger = get_component_logger("fullon.auth.jwt_middleware")
         self.jwt_handler = JWTHandler(secret_key, algorithm)
+        self.api_key_validator = ApiKeyValidator()
         self.exclude_paths = exclude_paths or [
             "/",
             "/docs",
@@ -255,7 +257,9 @@ class JWTMiddleware(BaseHTTPMiddleware):
                         if user:
                             # Set User ORM instance (NOT dict)
                             request.state.user = user
-                            self.logger.debug("User authenticated", user_id=user.uid, email=user.mail, path=request.url.path)
+                            self.logger.debug("User authenticated via JWT", user_id=user.uid, email=user.mail, path=request.url.path)
+                            response = await call_next(request)
+                            return response
                         else:
                             self.logger.warning("User not found in database", user_id=user_id, path=request.url.path)
                 else:
@@ -265,7 +269,18 @@ class JWTMiddleware(BaseHTTPMiddleware):
         else:
             self.logger.debug("No JWT token provided", path=request.url.path)
 
-        # Continue to next middleware/endpoint regardless of token validity
+        # Fallback to API key authentication
+        api_key = self._extract_api_key(request)
+        if api_key:
+            user = await self.api_key_validator.validate_key(api_key)
+            if user:
+                # Set User ORM instance (same format as JWT auth)
+                request.state.user = user
+                self.logger.debug("User authenticated via API key", user_id=user.uid, email=user.mail, path=request.url.path)
+                response = await call_next(request)
+                return response
+
+        # No valid authentication found - continue to endpoint (let endpoint handle auth requirement)
         response = await call_next(request)
         return response
 
@@ -309,6 +324,20 @@ class JWTMiddleware(BaseHTTPMiddleware):
             return None
 
         return token
+
+    def _extract_api_key(self, request: Request) -> Optional[str]:
+        """
+        Extract API key from request headers.
+
+        Args:
+            request: HTTP request
+
+        Returns:
+            API key string or None if not found
+        """
+        api_key_header = getattr(settings, 'api_key_header_name', 'X-API-Key')
+        api_key = request.headers.get(api_key_header)
+        return api_key
 
 
 def create_auth_middleware(secret_key: str, **kwargs) -> AuthMiddleware:
