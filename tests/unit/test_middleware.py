@@ -119,3 +119,34 @@ async def test_jwt_middleware():
     response = await middleware.dispatch(mock_request, mock_call_next_no_token)
     assert response.status_code == 200
 
+    # Test API key authentication
+    mock_request.headers = {"X-API-Key": "fullon_ak_valid_api_key"}
+    mock_request.state = type('State', (), {})()  # Simple object to track attributes
+
+    async def mock_call_next_api_key(request):
+        # Check if User ORM was set via API key
+        assert hasattr(request.state, 'user')
+        assert request.state.user is not None
+        return JSONResponse({"status": "ok"})
+
+    # Mock the API key validator on the middleware instance
+    middleware.api_key_validator.validate_key = AsyncMock(return_value=mock_user)
+
+    response = await middleware.dispatch(mock_request, mock_call_next_api_key)
+    assert response.status_code == 200
+    middleware.api_key_validator.validate_key.assert_called_once_with("fullon_ak_valid_api_key")
+
+    # Test invalid API key
+    mock_request.state = type('State', (), {})()  # Simple object to track attributes
+
+    async def mock_call_next_invalid_api_key(request):
+        # Should not have user set
+        assert not hasattr(request.state, 'user')
+        return JSONResponse({"status": "ok"})
+
+    # Mock the API key validator to return None
+    middleware.api_key_validator.validate_key = AsyncMock(return_value=None)
+
+    response = await middleware.dispatch(mock_request, mock_call_next_invalid_api_key)
+    assert response.status_code == 200
+
