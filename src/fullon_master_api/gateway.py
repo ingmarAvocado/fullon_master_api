@@ -13,8 +13,6 @@ from .auth.middleware import JWTMiddleware
 from .config import settings
 from .routers.auth import router as auth_router
 
-logger = get_component_logger("fullon.master_api.gateway")
-
 
 class MasterGateway:
     """
@@ -35,8 +33,10 @@ class MasterGateway:
 
     def __init__(self):
         """Initialize the Master API Gateway."""
+        # CRITICAL: Create component-specific logger
+        self.logger = get_component_logger("fullon.master_api.gateway")
         self.app = self._create_app()
-        logger.info("Master API Gateway initialized")
+        self.logger.info("Master API Gateway initialized")
 
     def _create_app(self) -> FastAPI:
         """
@@ -60,7 +60,7 @@ class MasterGateway:
             allow_headers=settings.cors_allow_headers,
         )
 
-        logger.info(
+        self.logger.info(
             "CORS middleware configured",
             origins=settings.cors_origins,
         )
@@ -68,7 +68,7 @@ class MasterGateway:
         # Add JWT authentication middleware
         app.add_middleware(JWTMiddleware, secret_key=settings.jwt_secret_key)
 
-        logger.info("JWT middleware configured")
+        self.logger.info("JWT middleware configured")
 
         # Basic health endpoint (no auth required)
         @app.get("/health")
@@ -94,7 +94,7 @@ class MasterGateway:
         # Include auth router
         app.include_router(auth_router, prefix=settings.api_prefix)
 
-        logger.info(
+        self.logger.info(
             "FastAPI application created",
             title=settings.api_title,
             version=settings.api_version,
@@ -110,10 +110,12 @@ class MasterGateway:
             List of APIRouter instances from fullon_orm_api
         """
         orm_routers = get_orm_routers()
-        logger.info("Discovered ORM routers", count=len(orm_routers))
+
+        # Structured logging with key=value pairs
+        self.logger.info("Discovered ORM routers", count=len(orm_routers))
 
         for router in orm_routers:
-            logger.debug(
+            self.logger.debug(
                 "ORM router discovered",
                 prefix=getattr(router, 'prefix', None),
                 tags=getattr(router, 'tags', [])
