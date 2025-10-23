@@ -96,6 +96,9 @@ class MasterGateway:
         # Include auth router
         app.include_router(auth_router, prefix=settings.api_prefix)
 
+        # Mount ORM API routers (NEW - Issue #17)
+        self._mount_orm_routers(app)
+
         self.logger.info(
             "FastAPI application created",
             title=settings.api_title,
@@ -165,6 +168,45 @@ class MasterGateway:
         )
 
         return routers
+
+    def _mount_orm_routers(self, app: FastAPI) -> None:
+        """
+        Mount fullon_orm_api routers with auth override.
+
+        Mounts ORM routers at /api/v1/orm/* prefix following ADR-001.
+        Auth dependencies are overridden to use master API JWT auth.
+
+        Args:
+            app: FastAPI application instance
+        """
+        # Discover ORM routers (includes auth override from Issue #16)
+        orm_routers = self._discover_orm_routers()
+
+        # Mount each router with ORM prefix
+        for router in orm_routers:
+            # Get router metadata
+            router_prefix = getattr(router, 'prefix', '')
+            router_tags = getattr(router, 'tags', [])
+
+            # Mount with /api/v1/orm prefix
+            app.include_router(
+                router,
+                prefix=f"{settings.api_prefix}/orm"
+            )
+
+            # Structured logging (fullon_log pattern)
+            self.logger.info(
+                "ORM router mounted",
+                prefix=f"{settings.api_prefix}/orm{router_prefix}",
+                tags=router_tags,
+                route_count=len(router.routes)
+            )
+
+        self.logger.info(
+            "All ORM routers mounted",
+            total_routers=len(orm_routers),
+            base_prefix=f"{settings.api_prefix}/orm"
+        )
 
     def get_app(self) -> FastAPI:
         """
