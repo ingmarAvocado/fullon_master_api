@@ -60,4 +60,5 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest_asyncio.*",
     "ignore::DeprecationWarning:uvloop.*",
     "ignore:::pydantic.*",
+    "ignore::UserWarning:pydantic.*",
 ]

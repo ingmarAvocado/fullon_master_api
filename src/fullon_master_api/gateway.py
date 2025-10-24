@@ -366,29 +366,25 @@ class MasterGateway:
 
     def _mount_cache_routers(self, app: FastAPI) -> None:
         """
-        Mount fullon_cache_api WebSocket routers.
+        Mount cache WebSocket routers from fullon_cache_api.
 
-        NOTE: Cache API is WebSocket-only (no REST endpoints).
-        All cache operations (tickers, orders, accounts) use WebSocket streaming.
-
-        Routers mounted:
-            - /api/v1/cache/ws - Base WebSocket endpoint
-            - /api/v1/cache/ws/tickers/{connection_id}
-            - /api/v1/cache/ws/orders/{connection_id}
-            - /api/v1/cache/ws/trades/{connection_id}
-            - /api/v1/cache/ws/accounts/{connection_id}
-            - /api/v1/cache/ws/bots/{connection_id}
-            - /api/v1/cache/ws/ohlcv/{connection_id}
-            - /api/v1/cache/ws/process/{connection_id}
-
-        Authentication:
-            WebSocket connections are authenticated via query parameter:
-            ws://host/api/v1/cache/ws/tickers/demo?token=jwt_token
-
-        ADR References:
-            - ADR-001: Router Composition Over Direct Library Usage
-            - ADR-002: WebSocket Proxy for Cache API
+        This mounts 8 WebSocket endpoints:
+        - /ws/tickers/{connection_id}
+        - /ws/orders/{connection_id}
+        - /ws/trades/{connection_id}
+        - /ws/accounts/{connection_id}
+        - /ws/bots/{connection_id}
+        - /ws/ohlcv/{connection_id}
+        - /ws/process/{connection_id}
         """
+        # Temporarily disabled due to Pydantic model issues in dependency
+        # TODO: Re-enable once fullon_cache_api models are updated to Pydantic V2
+        self.logger.info(
+            "Cache WebSocket routers temporarily disabled",
+            reason="Pydantic model compatibility issues",
+        )
+        return
+
         from fullon_cache_api.main import create_app as create_cache_app
 
         # Get cache app with all 8 WebSocket routers
