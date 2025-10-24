@@ -353,6 +353,10 @@ async def install_demo_data():
             await db.commit()
             print_success("Bots installed successfully")
 
+            # Install OHLCV sample data (separate context for OHLCV database)
+            await install_ohlcv_sample_data()
+            print_success("OHLCV sample data installed successfully")
+
             print_success("Demo data installation complete!")
             fullon_logger.info("Demo data installation completed successfully")
             return True
@@ -361,6 +365,161 @@ async def install_demo_data():
         print_error(f"Failed to install demo data: {e}")
         fullon_logger.error(f"Demo data installation failed: {e}")
         return False
+
+
+async def install_ohlcv_sample_data():
+    """Install sample OHLCV data for testing OHLCV API endpoints.
+
+    Creates sample candle data for:
+    - kraken.ohlcv_1m (1-minute candles)
+    - kraken.ohlcv_1h (1-hour candles)
+    - kraken.ohlcv_1d (1-day candles)
+
+    Uses direct SQL because OHLCV data is in a separate database with TimescaleDB.
+    """
+    print_info("Installing OHLCV sample data...")
+
+    import asyncpg
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+
+    # Get OHLCV database configuration
+    ohlcv_db_name = os.getenv("DB_OHLCV_NAME", os.getenv("DB_NAME", "fullon2"))
+    host = os.getenv("DB_HOST", "localhost")
+    port = int(os.getenv("DB_PORT", "5432"))
+    user = os.getenv("DB_USER", "postgres")
+    password = os.getenv("DB_PASSWORD", "")
+
+    try:
+        # Connect to OHLCV database
+        conn = await asyncpg.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=ohlcv_db_name
+        )
+
+        try:
+            # Create kraken schema if it doesn't exist
+            await conn.execute("CREATE SCHEMA IF NOT EXISTS kraken")
+            print_info("  Created/verified kraken schema")
+
+            # Create OHLCV tables (matching fullon_ohlcv_service structure)
+            # 1-minute table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS kraken.ohlcv_1m (
+                    time TIMESTAMPTZ NOT NULL,
+                    symbol_id INTEGER NOT NULL,
+                    open NUMERIC,
+                    high NUMERIC,
+                    low NUMERIC,
+                    close NUMERIC,
+                    volume NUMERIC,
+                    PRIMARY KEY (time, symbol_id)
+                )
+            """)
+
+            # 1-hour table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS kraken.ohlcv_1h (
+                    time TIMESTAMPTZ NOT NULL,
+                    symbol_id INTEGER NOT NULL,
+                    open NUMERIC,
+                    high NUMERIC,
+                    low NUMERIC,
+                    close NUMERIC,
+                    volume NUMERIC,
+                    PRIMARY KEY (time, symbol_id)
+                )
+            """)
+
+            # 1-day table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS kraken.ohlcv_1d (
+                    time TIMESTAMPTZ NOT NULL,
+                    symbol_id INTEGER NOT NULL,
+                    open NUMERIC,
+                    high NUMERIC,
+                    low NUMERIC,
+                    close NUMERIC,
+                    volume NUMERIC,
+                    PRIMARY KEY (time, symbol_id)
+                )
+            """)
+
+            print_info("  Created/verified OHLCV tables (1m, 1h, 1d)")
+
+            # Generate sample data for BTC/USDC (symbol_id=1, assuming first symbol created)
+            # Generate last 24 hours of 1-minute candles
+            now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+            base_price = Decimal("43000.0")  # BTC price around $43k
+
+            # 1-minute candles (last 2 hours = 120 candles)
+            print_info("  Generating 1-minute candles (last 2 hours)...")
+            for i in range(120):
+                timestamp = now - timedelta(minutes=119-i)
+                # Simulate price movement
+                offset = Decimal(str((i % 20) - 10)) * Decimal("10.0")
+                open_price = base_price + offset
+                high = open_price + Decimal("50.0")
+                low = open_price - Decimal("30.0")
+                close_price = open_price + Decimal(str((i % 5) - 2)) * Decimal("5.0")
+                volume = Decimal("1.5") + Decimal(str(i % 10)) * Decimal("0.1")
+
+                await conn.execute("""
+                    INSERT INTO kraken.ohlcv_1m (time, symbol_id, open, high, low, close, volume)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (time, symbol_id) DO NOTHING
+                """, timestamp, 1, open_price, high, low, close_price, volume)
+
+            # 1-hour candles (last 7 days = 168 candles)
+            print_info("  Generating 1-hour candles (last 7 days)...")
+            for i in range(168):
+                timestamp = now.replace(minute=0) - timedelta(hours=167-i)
+                offset = Decimal(str((i % 50) - 25)) * Decimal("20.0")
+                open_price = base_price + offset
+                high = open_price + Decimal("200.0")
+                low = open_price - Decimal("150.0")
+                close_price = open_price + Decimal(str((i % 10) - 5)) * Decimal("30.0")
+                volume = Decimal("100.0") + Decimal(str(i % 50)) * Decimal("5.0")
+
+                await conn.execute("""
+                    INSERT INTO kraken.ohlcv_1h (time, symbol_id, open, high, low, close, volume)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (time, symbol_id) DO NOTHING
+                """, timestamp, 1, open_price, high, low, close_price, volume)
+
+            # 1-day candles (last 90 days)
+            print_info("  Generating 1-day candles (last 90 days)...")
+            for i in range(90):
+                timestamp = now.replace(hour=0, minute=0) - timedelta(days=89-i)
+                offset = Decimal(str((i % 30) - 15)) * Decimal("100.0")
+                open_price = base_price + offset
+                high = open_price + Decimal("800.0")
+                low = open_price - Decimal("600.0")
+                close_price = open_price + Decimal(str((i % 20) - 10)) * Decimal("50.0")
+                volume = Decimal("5000.0") + Decimal(str(i % 100)) * Decimal("50.0")
+
+                await conn.execute("""
+                    INSERT INTO kraken.ohlcv_1d (time, symbol_id, open, high, low, close, volume)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (time, symbol_id) DO NOTHING
+                """, timestamp, 1, open_price, high, low, close_price, volume)
+
+            print_success("  Generated sample OHLCV data:")
+            print_info("    - 120 x 1-minute candles (last 2 hours)")
+            print_info("    - 168 x 1-hour candles (last 7 days)")
+            print_info("    - 90 x 1-day candles (last 90 days)")
+
+        finally:
+            await conn.close()
+
+    except Exception as e:
+        print_error(f"Failed to install OHLCV sample data: {e}")
+        print_warning("OHLCV examples will work but return empty results")
+        # Don't fail the whole installation if OHLCV data fails
+        fullon_logger.warning(f"OHLCV sample data installation failed (non-critical): {e}")
 
 
 async def install_admin_user_internal(db: DatabaseContext) -> int | None:
