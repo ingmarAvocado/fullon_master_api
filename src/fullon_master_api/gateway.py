@@ -7,9 +7,9 @@ Follows ADR-001: Router Composition Over Direct Library Usage.
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
+from fullon_ohlcv_api import get_all_routers as get_ohlcv_routers
 from fullon_orm_api import get_all_routers as get_orm_routers
 from fullon_orm_api.dependencies.auth import get_current_user as orm_get_current_user
-from fullon_ohlcv_api import get_all_routers as get_ohlcv_routers
 
 from .auth.dependencies import get_current_user as master_get_current_user
 from .auth.middleware import JWTMiddleware
@@ -102,6 +102,9 @@ class MasterGateway:
 
         # Mount OHLCV API routers (Phase 4 - NEW)
         self._mount_ohlcv_routers(app)
+
+        # Mount Cache API WebSocket routers (Phase 5 - NEW)
+        self._mount_cache_routers(app)
 
         self.logger.info(
             "FastAPI application created",
@@ -369,6 +372,54 @@ class MasterGateway:
             "All OHLCV routers mounted",
             total_routers=len(ohlcv_routers),
             base_prefix=f"{settings.api_prefix}/ohlcv"
+        )
+
+    def _mount_cache_routers(self, app: FastAPI) -> None:
+        """
+        Mount fullon_cache_api WebSocket routers.
+
+        NOTE: Cache API is WebSocket-only (no REST endpoints).
+        All cache operations (tickers, orders, accounts) use WebSocket streaming.
+
+        Routers mounted:
+            - /api/v1/cache/ws - Base WebSocket endpoint
+            - /api/v1/cache/ws/tickers/{connection_id}
+            - /api/v1/cache/ws/orders/{connection_id}
+            - /api/v1/cache/ws/trades/{connection_id}
+            - /api/v1/cache/ws/accounts/{connection_id}
+            - /api/v1/cache/ws/bots/{connection_id}
+            - /api/v1/cache/ws/ohlcv/{connection_id}
+            - /api/v1/cache/ws/process/{connection_id}
+
+        Authentication:
+            WebSocket connections are authenticated via query parameter:
+            ws://host/api/v1/cache/ws/tickers/demo?token=jwt_token
+
+        ADR References:
+            - ADR-001: Router Composition Over Direct Library Usage
+            - ADR-002: WebSocket Proxy for Cache API
+        """
+        from fullon_cache_api import create_app as create_cache_app
+
+        # Get cache app with all 8 WebSocket routers
+        cache_app = create_cache_app()
+
+        # Mount cache app under /api/v1/cache prefix
+        app.mount("/api/v1/cache", cache_app)
+
+        self.logger.info(
+            "Cache WebSocket routers mounted",
+            prefix="/api/v1/cache",
+            endpoints=[
+                "/ws",
+                "/ws/tickers/{connection_id}",
+                "/ws/orders/{connection_id}",
+                "/ws/trades/{connection_id}",
+                "/ws/accounts/{connection_id}",
+                "/ws/bots/{connection_id}",
+                "/ws/ohlcv/{connection_id}",
+                "/ws/process/{connection_id}"
+            ]
         )
 
     def get_app(self) -> FastAPI:
