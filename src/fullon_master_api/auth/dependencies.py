@@ -139,7 +139,7 @@ async def get_current_user(request: Request) -> User:
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    logger.debug("User retrieved from request state", uid=user.uid, username=user.username)
+    logger.debug("User retrieved from request state", uid=user.uid, email=user.mail)
     return user
 
 

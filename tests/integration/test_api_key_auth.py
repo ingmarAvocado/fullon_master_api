@@ -9,14 +9,14 @@ from datetime import datetime, timezone, timedelta
 
 from fullon_orm.models import User
 
-from tests.conftest import TestDatabaseContext
+from tests.conftest import DatabaseTestContext
 
 
 class TestApiKeyAuthIntegration:
     """Integration tests for API key authentication."""
 
     @pytest.fixture
-    async def test_user(self, db_context: TestDatabaseContext) -> User:
+    async def test_user(self, db_context: DatabaseTestContext) -> User:
         """Create a test user for authentication tests."""
         import uuid
         # Create test user with unique email
@@ -34,7 +34,7 @@ class TestApiKeyAuthIntegration:
         return user
 
     @pytest.fixture
-    async def test_api_key(self, db_context: TestDatabaseContext, test_user: User):
+    async def test_api_key(self, db_context: DatabaseTestContext, test_user: User):
         """Create a test API key for the test user."""
         import uuid
         from fullon_orm.models import ApiKey
@@ -55,7 +55,7 @@ class TestApiKeyAuthIntegration:
         return api_key
 
     @pytest.fixture
-    async def expired_api_key(self, db_context: TestDatabaseContext, test_user: User):
+    async def expired_api_key(self, db_context: DatabaseTestContext, test_user: User):
         """Create an expired API key for testing."""
         import uuid
         from fullon_orm.models import ApiKey
@@ -77,7 +77,7 @@ class TestApiKeyAuthIntegration:
         return api_key
 
     @pytest.fixture
-    async def inactive_api_key(self, db_context: TestDatabaseContext, test_user: User):
+    async def inactive_api_key(self, db_context: DatabaseTestContext, test_user: User):
         """Create an inactive API key for testing."""
         import uuid
         from fullon_orm.models import ApiKey
@@ -203,7 +203,7 @@ class TestApiKeyAuthIntegration:
     @pytest.mark.asyncio
     async def test_api_key_usage_tracking(
         self,
-        db_context: TestDatabaseContext,
+        db_context: DatabaseTestContext,
         client,
         test_api_key
     ):

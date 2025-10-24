@@ -247,7 +247,7 @@ async def get_or_create_engine(db_name: str, create_ohlcv_schemas: bool = False)
 # ============================================================================
 
 
-class TestDatabaseContext:
+class DatabaseTestContext:
     """DatabaseContext wrapper for testing with perfect isolation.
 
     This mimics fullon_orm's DatabaseContext pattern but uses savepoints for test isolation:
@@ -405,7 +405,7 @@ async def db_context(request):
 
         try:
             # Create test database context wrapper
-            db = TestDatabaseContext(session)
+            db = DatabaseTestContext(session)
 
             yield db
         finally:
