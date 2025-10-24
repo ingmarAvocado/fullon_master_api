@@ -1,5 +1,5 @@
 """Verify cache routers are discoverable."""
-from fullon_cache_api import create_app
+from fullon_cache_api.main import create_app
 
 
 def main():
@@ -11,6 +11,7 @@ def main():
 
     assert len(cache_app.routes) >= 8, "Expected at least 8 WebSocket routes"
     print(f"\nTotal routes: {len(cache_app.routes)}")
+
 
 if __name__ == "__main__":
     main()

@@ -129,8 +129,8 @@ class MasterGateway:
         for router in orm_routers:
             self.logger.debug(
                 "ORM router discovered",
-                prefix=getattr(router, 'prefix', None),
-                tags=getattr(router, 'tags', [])
+                prefix=getattr(router, "prefix", None),
+                tags=getattr(router, "tags", []),
             )
 
         # Apply auth dependency overrides (NEW in Issue #16)
@@ -166,8 +166,7 @@ class MasterGateway:
                 self._apply_ohlcv_auth_overrides(router)
 
             self.logger.info(
-                "OHLCV routers discovered with auth override",
-                router_count=len(ohlcv_routers)
+                "OHLCV routers discovered with auth override", router_count=len(ohlcv_routers)
             )
 
             return ohlcv_routers
@@ -199,7 +198,7 @@ class MasterGateway:
         """
         for router in routers:
             # Initialize dependency_overrides if it doesn't exist
-            if not hasattr(router, 'dependency_overrides'):
+            if not hasattr(router, "dependency_overrides"):
                 router.dependency_overrides = {}
 
             # Override ORM API's get_current_user with master API's version
@@ -208,14 +207,11 @@ class MasterGateway:
             # Structured logging (key=value pattern from fullon_log)
             self.logger.debug(
                 "Auth dependency overridden for ORM router",
-                prefix=getattr(router, 'prefix', None),
-                override_count=len(router.dependency_overrides)
+                prefix=getattr(router, "prefix", None),
+                override_count=len(router.dependency_overrides),
             )
 
-        self.logger.info(
-            "Auth overrides applied to ORM routers",
-            router_count=len(routers)
-        )
+        self.logger.info("Auth overrides applied to ORM routers", router_count=len(routers))
 
         return routers
 
@@ -239,7 +235,7 @@ class MasterGateway:
         override_count = 0
 
         for route in router.routes:
-            if hasattr(route, 'dependant'):
+            if hasattr(route, "dependant"):
                 # Inspect route dependencies
                 dependencies = route.dependant.dependencies
 
@@ -248,11 +244,11 @@ class MasterGateway:
                 for dep in dependencies:
                     # Check if dependency might be auth-related
                     # (This is a heuristic - adjust based on fullon_ohlcv_api's actual auth)
-                    if hasattr(dep, 'call') and dep.call:
-                        dep_name = getattr(dep.call, '__name__', '')
+                    if hasattr(dep, "call") and dep.call:
+                        dep_name = getattr(dep.call, "__name__", "")
 
                         # Override if looks like auth dependency
-                        if 'auth' in dep_name.lower() or 'user' in dep_name.lower():
+                        if "auth" in dep_name.lower() or "user" in dep_name.lower():
                             # Replace with master API auth
                             dep.call = master_get_current_user
                             override_count += 1
@@ -262,7 +258,7 @@ class MasterGateway:
                                 "Auth dependency overridden",
                                 route_path=route.path,
                                 original_dep=dep_name,
-                                new_dep="get_current_user"
+                                new_dep="get_current_user",
                             )
 
                 # If no auth dependency found, ADD it (OHLCV requires auth)
@@ -274,13 +270,13 @@ class MasterGateway:
                     self.logger.debug(
                         "Auth dependency added",
                         route_path=route.path,
-                        dependency="get_current_user"
+                        dependency="get_current_user",
                     )
 
         self.logger.info(
             "Auth overrides applied to OHLCV router",
             route_count=len(router.routes),
-            overrides=override_count
+            overrides=override_count,
         )
 
     def _mount_orm_routers(self, app: FastAPI) -> None:
@@ -299,27 +295,24 @@ class MasterGateway:
         # Mount each router with ORM prefix
         for router in orm_routers:
             # Get router metadata
-            router_prefix = getattr(router, 'prefix', '')
-            router_tags = getattr(router, 'tags', [])
+            router_prefix = getattr(router, "prefix", "")
+            router_tags = getattr(router, "tags", [])
 
             # Mount with /api/v1/orm prefix
-            app.include_router(
-                router,
-                prefix=f"{settings.api_prefix}/orm"
-            )
+            app.include_router(router, prefix=f"{settings.api_prefix}/orm")
 
             # Structured logging (fullon_log pattern)
             self.logger.info(
                 "ORM router mounted",
                 prefix=f"{settings.api_prefix}/orm{router_prefix}",
                 tags=router_tags,
-                route_count=len(router.routes)
+                route_count=len(router.routes),
             )
 
         self.logger.info(
             "All ORM routers mounted",
             total_routers=len(orm_routers),
-            base_prefix=f"{settings.api_prefix}/orm"
+            base_prefix=f"{settings.api_prefix}/orm",
         )
 
     def _mount_ohlcv_routers(self, app: FastAPI) -> None:
@@ -342,21 +335,18 @@ class MasterGateway:
         # Mount each router with OHLCV prefix
         for router in ohlcv_routers:
             # Get router metadata
-            router_prefix = getattr(router, 'prefix', '')
-            router_tags = getattr(router, 'tags', [])
+            router_prefix = getattr(router, "prefix", "")
+            router_tags = getattr(router, "tags", [])
 
             # Mount with /api/v1/ohlcv prefix (always add category prefix)
-            app.include_router(
-                router,
-                prefix=f"{settings.api_prefix}/ohlcv"
-            )
+            app.include_router(router, prefix=f"{settings.api_prefix}/ohlcv")
 
             # Structured logging (fullon_log pattern)
             self.logger.info(
                 "OHLCV router mounted",
                 prefix=f"{settings.api_prefix}/ohlcv{router_prefix}",
                 tags=router_tags,
-                route_count=len(router.routes)
+                route_count=len(router.routes),
             )
 
             # Log individual routes for debugging
@@ -364,14 +354,14 @@ class MasterGateway:
                 self.logger.debug(
                     "OHLCV route registered",
                     path=route.path,
-                    methods=getattr(route, 'methods', ['GET']),
-                    name=getattr(route, 'name', 'unknown')
+                    methods=getattr(route, "methods", ["GET"]),
+                    name=getattr(route, "name", "unknown"),
                 )
 
         self.logger.info(
             "All OHLCV routers mounted",
             total_routers=len(ohlcv_routers),
-            base_prefix=f"{settings.api_prefix}/ohlcv"
+            base_prefix=f"{settings.api_prefix}/ohlcv",
         )
 
     def _mount_cache_routers(self, app: FastAPI) -> None:
@@ -399,7 +389,7 @@ class MasterGateway:
             - ADR-001: Router Composition Over Direct Library Usage
             - ADR-002: WebSocket Proxy for Cache API
         """
-        from fullon_cache_api import create_app as create_cache_app
+        from fullon_cache_api.main import create_app as create_cache_app
 
         # Get cache app with all 8 WebSocket routers
         cache_app = create_cache_app()
@@ -418,8 +408,8 @@ class MasterGateway:
                 "/ws/accounts/{connection_id}",
                 "/ws/bots/{connection_id}",
                 "/ws/ohlcv/{connection_id}",
-                "/ws/process/{connection_id}"
-            ]
+                "/ws/process/{connection_id}",
+            ],
         )
 
     def get_app(self) -> FastAPI:
