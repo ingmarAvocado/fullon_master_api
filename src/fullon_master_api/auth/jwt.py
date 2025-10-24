@@ -118,6 +118,21 @@ class JWTHandler:
             self.logger.warning("Token decode failed", error=str(e))
             raise
 
+    def validate_token(self, token: str) -> Dict[str, Any]:
+        """
+        Validate a JWT token and return its payload.
+
+        Args:
+            token: JWT token string
+
+        Returns:
+            Decoded payload dictionary
+
+        Raises:
+            jwt.PyJWTError: If token is invalid or expired
+        """
+        return self.decode_token(token)
+
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
         Verify if a token is valid and return its payload.
