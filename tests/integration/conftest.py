@@ -32,6 +32,7 @@ def client(gateway):
 def jwt_handler():
     """Create JWT handler for generating test tokens."""
     from fullon_master_api.config import settings
+
     return JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
 
 
@@ -65,7 +66,7 @@ async def test_user(db_context, worker_id):
         email=email,
         name="Test",
         lastname="User",
-        password="hashed_password_123"
+        password="hashed_password_123",
     )
 
     return user
@@ -74,14 +75,50 @@ async def test_user(db_context, worker_id):
 @pytest_asyncio.fixture
 async def valid_token(jwt_handler, test_user):
     """Create valid JWT token for test user."""
-    return jwt_handler.create_token({
-        "sub": test_user.mail,
-        "user_id": test_user.uid,
-        "scopes": ["read", "write"]
-    })
+    return jwt_handler.create_token(
+        {"sub": test_user.mail, "user_id": test_user.uid, "scopes": ["read", "write"]}
+    )
 
 
 @pytest_asyncio.fixture
 async def auth_headers(valid_token):
     """Create authorization headers with valid token."""
     return {"Authorization": f"Bearer {valid_token}"}
+
+
+# WebSocket-specific fixtures for cache WebSocket integration tests
+
+
+@pytest.fixture
+def ws_base_url():
+    """Base WebSocket URL for cache WebSocket tests."""
+    return "ws://localhost:8000/api/v1/cache"
+
+
+@pytest.fixture
+def ws_url(ws_base_url):
+    """WebSocket URL helper for tests."""
+    return ws_base_url
+
+
+@pytest_asyncio.fixture
+async def authenticated_websocket_token(jwt_handler, test_user):
+    """Generate JWT token for WebSocket authentication."""
+    return jwt_handler.create_token(
+        {"sub": test_user.mail, "user_id": test_user.uid, "scopes": ["read", "write"]}
+    )
+
+
+@pytest.fixture
+def websocket_endpoints():
+    """List of all expected WebSocket endpoints for cache API."""
+    return [
+        "/ws",  # Base WebSocket endpoint
+        "/ws/tickers/{connection_id}",  # Real-time ticker streaming
+        "/ws/orders/{connection_id}",  # Order queue updates
+        "/ws/trades/{connection_id}",  # Trade data streaming
+        "/ws/accounts/{connection_id}",  # Account balance updates
+        "/ws/bots/{connection_id}",  # Bot coordination
+        "/ws/ohlcv/{connection_id}",  # OHLCV candlestick streaming
+        "/ws/process/{connection_id}",  # Process monitoring
+    ]
