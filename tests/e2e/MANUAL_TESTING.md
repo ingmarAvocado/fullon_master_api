@@ -516,4 +516,260 @@ Let me do it.
 The tool call is: 
 
 <xai:function_call name="bash">
-<parameter name="command">poetry run ruff check examples/example_orm_routes.py tests/e2e/test_example_orm_routes.py
+<parameter name="command">poetry run ruff check examples/example_orm_routes.py tests/e2e/test_example_orm_routes.py# Manual Testing Guide - OHLCV Routes
+
+## Prerequisites
+
+1. **Server running**:
+   ```bash
+   poetry run uvicorn fullon_master_api.main:app --reload
+   ```
+
+2. **Valid JWT token**:
+   ```bash
+   # Get auth token (from JWT example)
+   TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"secret"}' | jq -r '.access_token')
+
+   echo $TOKEN
+   ```
+
+3. **Test user exists** in database (user_id=1)
+
+---
+
+## Test 1: Get OHLCV Data
+
+**Endpoint**: `GET /api/v1/ohlcv/{exchange}/{symbol}`
+
+```bash
+# Get OHLCV candlestick data for BTC-USDC on Kraken
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=1m&limit=10" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected: 200 OK with list of candles
+# [
+#   [timestamp, open, high, low, close, volume],
+#   ...
+# ]
+```
+
+**Parameters**:
+- `timeframe`: 1m, 5m, 15m, 1h, 4h, 1d (default: 1h)
+- `limit`: Number of candles (default: 100)
+- `start_time`: Unix timestamp in ms (optional)
+- `end_time`: Unix timestamp in ms (optional)
+
+**Without Auth** (should fail):
+```bash
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC"
+# Expected: 401 Unauthorized
+```
+
+---
+
+## Test 2: Get Latest Candle
+
+**Endpoint**: `GET /api/v1/ohlcv/{exchange}/{symbol}/latest`
+
+```bash
+# Get most recent candle for BTC-USDC
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC/latest?timeframe=1m" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected: 200 OK with single candle
+# [timestamp, open, high, low, close, volume]
+```
+
+---
+
+## Test 3: Get Trade Data
+
+**Endpoint**: `GET /api/v1/trades/{exchange}/{symbol}`
+
+```bash
+# Get recent trades for BTC-USDC
+curl -X GET "http://localhost:8000/api/v1/trades/kraken/BTC-USDC?limit=20" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected: 200 OK with list of trades
+# [
+#   {"timestamp": 1234567890, "price": 50000.0, "volume": 0.5, "side": "buy"},
+#   ...
+# ]
+```
+
+---
+
+## Test 4: Time Range Queries
+
+**Time Range**: Get data between specific timestamps
+
+```bash
+# Get OHLCV data for last hour
+START=$(date -d '1 hour ago' +%s)000
+END=$(date +%s)000
+
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=1m&start_time=$START&end_time=$END" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## Test 5: Multiple Timeframes
+
+Test different timeframe resolutions:
+
+```bash
+# 1-minute candles (high frequency)
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=1m&limit=60" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 5-minute candles
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=5m&limit=12" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 1-hour candles (default)
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=1h&limit=24" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 1-day candles (low frequency, historical)
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=1d&limit=30" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## Test 6: Different Exchanges
+
+Test multiple exchanges (if configured):
+
+```bash
+# Kraken
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=1m" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Binance
+curl -X GET "http://localhost:8000/api/v1/ohlcv/binance/BTCUSDT?timeframe=1m" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Coinbase
+curl -X GET "http://localhost:8000/api/v1/ohlcv/coinbase/BTC-USD?timeframe=1m" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## Test 7: Error Handling
+
+**Invalid Exchange**:
+```bash
+curl -X GET "http://localhost:8000/api/v1/ohlcv/invalid_exchange/BTC-USDC" \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: 400/404 with error message
+```
+
+**Invalid Symbol**:
+```bash
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/INVALID-SYMBOL" \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: 400/404 with error message
+```
+
+**Invalid Timeframe**:
+```bash
+curl -X GET "http://localhost:8000/api/v1/ohlcv/kraken/BTC-USDC?timeframe=99m" \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: 400/422 with error message
+```
+
+---
+
+## Test 8: Run Example Script
+
+```bash
+# Run the OHLCV routes example
+poetry run python examples/example_ohlcv_routes.py
+
+# Expected: Formatted output showing OHLCV operations
+# - Fetching OHLCV data for different timeframes
+# - Getting latest candles
+# - Time range queries
+# - Multiple timeframes comparison
+```
+
+---
+
+## Troubleshooting
+
+### Issue: 401 Unauthorized
+**Symptom**: All requests return 401
+**Cause**: Missing or invalid JWT token
+**Fix**:
+```bash
+# Get fresh token
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r '.access_token')
+```
+
+### Issue: 404 Not Found on OHLCV endpoints
+**Symptom**: `/api/v1/ohlcv/*` returns 404
+**Cause**: OHLCV routers not mounted
+**Fix**: Check gateway.py mounts OHLCV routers:
+```python
+# In gateway.py _create_app()
+self._mount_ohlcv_routers(app)
+```
+
+### Issue: 500 Internal Server Error
+**Symptom**: OHLCV requests return 500
+**Cause**: OHLCV database not initialized or exchange not configured
+**Fix**:
+1. Check OHLCV database schema exists
+2. Verify exchange configuration in fullon_ohlcv
+3. Check server logs for specific error
+
+### Issue: Empty response []
+**Symptom**: Request succeeds but returns empty list
+**Cause**: No OHLCV data in database for exchange/symbol/timeframe
+**Fix**:
+1. Start OHLCV data collection daemon
+2. Wait for data to populate
+3. Use different symbol/exchange with existing data
+
+---
+
+## Expected Results
+
+✅ **Success Indicators**:
+- All endpoints return 200 OK with valid JWT
+- Requests without JWT return 401 Unauthorized
+- OHLCV data has structure: `[timestamp, open, high, low, close, volume]`
+- Trade data has structure: `{"timestamp": int, "price": float, "volume": float}`
+- Error responses have clear error messages
+- URL structure follows `/api/v1/ohlcv/*` pattern
+
+❌ **Failure Indicators**:
+- 404 on OHLCV endpoints (routers not mounted)
+- 500 errors (database/configuration issues)
+- No auth requirement (security vulnerability)
+- Wrong URL structure (pattern violation)
+
+---
+
+## Validation Checklist
+
+- [ ] Server starts without errors
+- [ ] Health check returns 200
+- [ ] JWT token obtained successfully
+- [ ] OHLCV data endpoint works with token
+- [ ] Latest candle endpoint works
+- [ ] Trade data endpoint works (or returns 404 if not available)
+- [ ] Time range queries work
+- [ ] Multiple timeframes return different granularity
+- [ ] Requests without auth fail with 401
+- [ ] Invalid parameters return appropriate errors
+- [ ] Example script runs successfully
+- [ ] All URL patterns match `/api/v1/ohlcv/*` structure
