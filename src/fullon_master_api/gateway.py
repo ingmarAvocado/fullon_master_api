@@ -100,6 +100,9 @@ class MasterGateway:
         # Mount ORM API routers (NEW - Issue #17)
         self._mount_orm_routers(app)
 
+        # Mount OHLCV API routers (Phase 4 - NEW)
+        self._mount_ohlcv_routers(app)
+
         self.logger.info(
             "FastAPI application created",
             title=settings.api_title,
@@ -314,6 +317,58 @@ class MasterGateway:
             "All ORM routers mounted",
             total_routers=len(orm_routers),
             base_prefix=f"{settings.api_prefix}/orm"
+        )
+
+    def _mount_ohlcv_routers(self, app: FastAPI) -> None:
+        """
+        Mount fullon_ohlcv_api routers with auth override.
+
+        Mounts OHLCV routers at /api/v1/ohlcv/* prefix following ADR-001.
+        Auth dependencies are overridden to use master API JWT auth.
+
+        Args:
+            app: FastAPI application instance
+        """
+        # Discover OHLCV routers (includes auth override from Issue #26)
+        ohlcv_routers = self._discover_ohlcv_routers()
+
+        if not ohlcv_routers:
+            self.logger.warning("No OHLCV routers to mount")
+            return
+
+        # Mount each router with OHLCV prefix
+        for router in ohlcv_routers:
+            # Get router metadata
+            router_prefix = getattr(router, 'prefix', '')
+            router_tags = getattr(router, 'tags', [])
+
+            # Mount with /api/v1/ohlcv prefix (always add category prefix)
+            app.include_router(
+                router,
+                prefix=f"{settings.api_prefix}/ohlcv"
+            )
+
+            # Structured logging (fullon_log pattern)
+            self.logger.info(
+                "OHLCV router mounted",
+                prefix=f"{settings.api_prefix}/ohlcv{router_prefix}",
+                tags=router_tags,
+                route_count=len(router.routes)
+            )
+
+            # Log individual routes for debugging
+            for route in router.routes:
+                self.logger.debug(
+                    "OHLCV route registered",
+                    path=route.path,
+                    methods=getattr(route, 'methods', ['GET']),
+                    name=getattr(route, 'name', 'unknown')
+                )
+
+        self.logger.info(
+            "All OHLCV routers mounted",
+            total_routers=len(ohlcv_routers),
+            base_prefix=f"{settings.api_prefix}/ohlcv"
         )
 
     def get_app(self) -> FastAPI:
