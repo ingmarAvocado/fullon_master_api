@@ -6,6 +6,7 @@ Usage:
     # or
     python -m fullon_master_api.main
 """
+from fullon_master_api.gateway import app
 
 if __name__ == "__main__":
     import uvicorn

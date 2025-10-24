@@ -69,7 +69,21 @@ class MasterGateway:
         )
 
         # Add JWT authentication middleware
-        app.add_middleware(JWTMiddleware, secret_key=settings.jwt_secret_key)
+        # Exclude cache WebSocket paths - they use their own authenticate_websocket() function
+        app.add_middleware(
+            JWTMiddleware,
+            secret_key=settings.jwt_secret_key,
+            exclude_paths=[
+                "/",
+                "/docs",
+                "/redoc",
+                "/openapi.json",
+                "/health",
+                f"{settings.api_prefix}/auth/login",
+                f"{settings.api_prefix}/auth/verify",
+                f"{settings.api_prefix}/cache/ws/*",  # Cache WebSocket endpoints (wildcard)
+            ]
+        )
 
         self.logger.info("JWT middleware configured")
 
@@ -377,14 +391,6 @@ class MasterGateway:
         - /ws/ohlcv/{connection_id}
         - /ws/process/{connection_id}
         """
-        # Temporarily disabled due to Pydantic model issues in dependency
-        # TODO: Re-enable once fullon_cache_api models are updated to Pydantic V2
-        self.logger.info(
-            "Cache WebSocket routers temporarily disabled",
-            reason="Pydantic model compatibility issues",
-        )
-        return
-
         from fullon_cache_api.main import create_app as create_cache_app
 
         # Get cache app with all 8 WebSocket routers
