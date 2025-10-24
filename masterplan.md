@@ -115,6 +115,15 @@
 │       ws/orders/*
 │       ws/accounts/*
 │
+├── services/               # Admin-only service control (NEW)
+│   ├── ticker/start        # Start ticker service
+│   ├── ticker/stop         # Stop ticker service
+│   ├── ticker/restart      # Restart ticker service
+│   ├── ticker/status       # Ticker service status
+│   ├── ohlcv/*             # Same operations for OHLCV service
+│   ├── account/*           # Same operations for account service
+│   └──                     # GET /services - All services status
+│
 └── health                  # Unified health check
 ```
 
@@ -129,10 +138,14 @@
 - ✅ Mount `fullon_cache_api` routers as-is (WebSocket)
 - ❌ NO REST wrappers for cache operations
 
-**ADR-003: No Service Control in API Gateway**
-- ✅ Use Docker Compose / Kubernetes for daemon orchestration
-- ❌ NO daemon start/stop/restart endpoints in API
-- **Rationale**: Service daemons (`fullon_ticker_service`, `fullon_ohlcv_service`, `fullon_account_service`) are long-lived processes with complex lifecycle management (dual databases, signal handlers, multi-phase initialization). They're designed for container orchestration, not API-based control. Master API provides health monitoring via ProcessCache instead.
+**ADR-003: Admin-Controlled Service Lifecycle**
+- ✅ Services run as async background tasks within master API
+- ✅ Admin-only endpoints for start/stop/restart/status operations
+- ✅ Admin identification via email match (ADMIN_MAIL env var, e.g., admin@fullon)
+- ✅ Centralized control eliminates need for separate orchestration
+- ✅ Services use Python library imports (TickerDaemon, OhlcvDaemon, AccountDaemon)
+- ❌ NO public service control (admin authentication required via email check)
+- **Rationale**: Service daemons (`fullon_ticker_service`, `fullon_ohlcv_service`, `fullon_account_service`) are Python libraries with async daemon classes. Running as background tasks in master API provides centralized admin control while maintaining proper isolation. Admin access verified by comparing authenticated user's email against ADMIN_MAIL from .env (e.g., admin@fullon). This avoids database schema changes while maintaining security.
 
 **ADR-004: Authentication via Middleware**
 - ✅ JWT middleware validates token, sets `request.state.user`
@@ -154,12 +167,17 @@ fullon_master_api/
 │   │   ├── __init__.py
 │   │   ├── jwt.py                 # JWT generation/validation
 │   │   ├── middleware.py          # Auth middleware (sets request.state.user)
-│   │   └── dependencies.py        # get_current_user dependency
+│   │   └── dependencies.py        # get_current_user, get_admin_user
 │   │
 │   ├── routers/
 │   │   ├── __init__.py
 │   │   ├── health.py              # Unified health check
+│   │   ├── services.py            # Admin-only service control (NEW)
 │   │   └── root.py                # API root documentation
+│   │
+│   ├── services/                  # Service lifecycle management (NEW)
+│   │   ├── __init__.py
+│   │   └── manager.py             # ServiceManager class
 │   │
 │   └── websocket/                 # WebSocket proxy utilities
 │       ├── __init__.py
@@ -342,6 +360,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60
+
+    # Admin Configuration (NEW - Phase 6)
+    admin_mail: str = "admin@fullon"  # Admin user email from .env
 
     # CORS
     cors_origins: list[str] = ["*"]
@@ -783,16 +804,254 @@ async def stream_tickers():
 
 ---
 
-### **Phase 6: Health & Monitoring** (Day 7-8)
+### **Phase 6: Service Control & Health Monitoring** (Day 7-8)
 
 **Objectives**:
-- Implement unified health check
-- Add circuit breaker pattern
-- Create monitoring endpoints
+- Implement admin-only service control endpoints (start/stop/restart/status)
+- Create ServiceManager for async background task management
+- Implement unified health check with service status monitoring
+- Add admin user dependency (get_admin_user)
 
 **Tasks**:
 
-1. **Implement `routers/health.py`**:
+1. **Add admin_mail to `config.py`**:
+```python
+class Settings(BaseSettings):
+    # ... existing settings ...
+
+    # Admin Configuration
+    admin_mail: str = "admin@fullon"  # Admin user email (from .env)
+
+    # ... rest of settings ...
+```
+
+2. **Create admin dependency in `auth/dependencies.py`**:
+```python
+from fastapi import Request, HTTPException, Depends
+from fullon_orm.models import User
+from ..config import settings
+
+async def get_admin_user(request: Request) -> User:
+    """
+    Dependency to get authenticated admin user from request state.
+
+    Admin check: Verifies user email matches ADMIN_MAIL from .env
+    (e.g., ADMIN_MAIL=admin@fullon)
+
+    This provides centralized admin control without database schema changes.
+    """
+    if not hasattr(request.state, "user"):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user: User = request.state.user
+
+    # Check if user email matches admin email from config
+    if user.mail != settings.admin_mail:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+
+    return user
+```
+
+3. **Create `services/manager.py`** (ServiceManager for async background tasks):
+```python
+import asyncio
+from typing import Dict, Optional
+from enum import Enum
+from fullon_log import get_component_logger
+
+# Import service daemons as libraries
+from fullon_ticker_service import TickerDaemon
+from fullon_ohlcv_service import OhlcvDaemon
+from fullon_account_service import AccountDaemon
+
+logger = get_component_logger("fullon.master_api.services")
+
+class ServiceName(str, Enum):
+    TICKER = "ticker"
+    OHLCV = "ohlcv"
+    ACCOUNT = "account"
+
+class ServiceManager:
+    """
+    Manages lifecycle of Fullon service daemons as async background tasks.
+
+    Services run as asyncio tasks within the master API process, not as
+    separate processes or subprocesses. This provides centralized control
+    while maintaining proper isolation.
+    """
+
+    def __init__(self):
+        self.daemons: Dict[ServiceName, any] = {
+            ServiceName.TICKER: TickerDaemon(),
+            ServiceName.OHLCV: OhlcvDaemon(),
+            ServiceName.ACCOUNT: AccountDaemon(),
+        }
+        self.tasks: Dict[ServiceName, Optional[asyncio.Task]] = {
+            ServiceName.TICKER: None,
+            ServiceName.OHLCV: None,
+            ServiceName.ACCOUNT: None,
+        }
+        logger.info("ServiceManager initialized")
+
+    async def start_service(self, service_name: ServiceName) -> dict:
+        """Start a service as background task."""
+        if self.tasks[service_name] is not None:
+            raise ValueError(f"{service_name} is already running")
+
+        daemon = self.daemons[service_name]
+
+        # Create background task for daemon.start()
+        self.tasks[service_name] = asyncio.create_task(daemon.start())
+
+        logger.info(f"{service_name} service started")
+        return {"service": service_name, "status": "started"}
+
+    async def stop_service(self, service_name: ServiceName) -> dict:
+        """Stop a running service gracefully."""
+        if self.tasks[service_name] is None:
+            raise ValueError(f"{service_name} is not running")
+
+        daemon = self.daemons[service_name]
+
+        # Graceful shutdown
+        await daemon.stop()
+
+        # Cancel background task
+        self.tasks[service_name].cancel()
+        try:
+            await self.tasks[service_name]
+        except asyncio.CancelledError:
+            pass
+
+        self.tasks[service_name] = None
+
+        logger.info(f"{service_name} service stopped")
+        return {"service": service_name, "status": "stopped"}
+
+    async def restart_service(self, service_name: ServiceName) -> dict:
+        """Restart a service (stop then start)."""
+        if self.tasks[service_name] is not None:
+            await self.stop_service(service_name)
+
+        await asyncio.sleep(1)  # Brief pause
+        await self.start_service(service_name)
+
+        logger.info(f"{service_name} service restarted")
+        return {"service": service_name, "status": "restarted"}
+
+    def get_service_status(self, service_name: ServiceName) -> dict:
+        """Get status of a specific service."""
+        is_running = self.tasks[service_name] is not None
+        daemon = self.daemons[service_name]
+
+        return {
+            "service": service_name,
+            "status": "running" if is_running else "stopped",
+            "is_running": daemon.is_running() if hasattr(daemon, 'is_running') else is_running,
+        }
+
+    def get_all_status(self) -> dict:
+        """Get status of all services."""
+        return {
+            "services": {
+                service_name: self.get_service_status(service_name)
+                for service_name in ServiceName
+            }
+        }
+
+    async def stop_all(self) -> None:
+        """Stop all running services (for graceful shutdown)."""
+        for service_name in ServiceName:
+            if self.tasks[service_name] is not None:
+                try:
+                    await self.stop_service(service_name)
+                except Exception as e:
+                    logger.error(f"Error stopping {service_name}", error=str(e))
+```
+
+4. **Create `routers/services.py`** (Admin-only service control endpoints):
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from fullon_orm.models import User
+from fullon_log import get_component_logger
+
+from ..auth.dependencies import get_admin_user
+from ..services.manager import ServiceManager, ServiceName
+
+router = APIRouter(tags=["services"])
+logger = get_component_logger("fullon.master_api.routers.services")
+
+# ServiceManager will be injected via app state
+def get_service_manager() -> ServiceManager:
+    """Dependency to get ServiceManager from app state."""
+    # This will be set in gateway.py: app.state.service_manager = ServiceManager()
+    from ..gateway import gateway
+    return gateway.service_manager
+
+@router.post("/services/{service_name}/start")
+async def start_service(
+    service_name: ServiceName,
+    admin_user: User = Depends(get_admin_user),
+    manager: ServiceManager = Depends(get_service_manager)
+):
+    """Start a service (admin only)."""
+    try:
+        result = await manager.start_service(service_name)
+        logger.info(f"Service started by admin", service=service_name, user_id=admin_user.uid)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/services/{service_name}/stop")
+async def stop_service(
+    service_name: ServiceName,
+    admin_user: User = Depends(get_admin_user),
+    manager: ServiceManager = Depends(get_service_manager)
+):
+    """Stop a service (admin only)."""
+    try:
+        result = await manager.stop_service(service_name)
+        logger.info(f"Service stopped by admin", service=service_name, user_id=admin_user.uid)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/services/{service_name}/restart")
+async def restart_service(
+    service_name: ServiceName,
+    admin_user: User = Depends(get_admin_user),
+    manager: ServiceManager = Depends(get_service_manager)
+):
+    """Restart a service (admin only)."""
+    try:
+        result = await manager.restart_service(service_name)
+        logger.info(f"Service restarted by admin", service=service_name, user_id=admin_user.uid)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/services/{service_name}/status")
+async def get_service_status(
+    service_name: ServiceName,
+    admin_user: User = Depends(get_admin_user),
+    manager: ServiceManager = Depends(get_service_manager)
+):
+    """Get service status (admin only)."""
+    return manager.get_service_status(service_name)
+
+@router.get("/services")
+async def get_all_services_status(
+    admin_user: User = Depends(get_admin_user),
+    manager: ServiceManager = Depends(get_service_manager)
+):
+    """Get status of all services (admin only)."""
+    return manager.get_all_status()
+```
+
+5. **Implement `routers/health.py`**:
 ```python
 from fastapi import APIRouter
 from fullon_orm import DatabaseContext
@@ -831,34 +1090,29 @@ async def unified_health_check():
         health_status["status"] = "degraded"
         logger.error("Redis health check failed", error=str(e))
 
-    # Check daemon status via ProcessCache
-    # NOTE: Daemons self-register with ProcessCache when running
+    # Check service status via ServiceManager (NEW)
+    # Services are managed as async background tasks in master API
     # - fullon_ticker_service: Continuous ticker streaming
     # - fullon_ohlcv_service: Historic + live OHLCV/trade collection
     # - fullon_account_service: Adaptive account monitoring
     try:
-        async with ProcessCache() as cache:
-            processes = await cache.get_active_processes()
+        from ..services.manager import ServiceManager
+        from ..gateway import gateway
 
-            # Extract daemon components from active processes
-            daemon_status = {}
-            for process in processes:
-                component = process.get('component', '').lower()
-                if 'ticker' in component:
-                    daemon_status['ticker'] = 'running'
-                elif 'ohlcv' in component:
-                    daemon_status['ohlcv'] = 'running'
-                elif 'account' in component:
-                    daemon_status['account'] = 'running'
+        # Get ServiceManager from gateway
+        service_manager: ServiceManager = gateway.service_manager
 
-            # Set default 'stopped' for missing daemons
-            health_status["services"]["daemons"] = {
-                "ticker": daemon_status.get('ticker', 'stopped'),
-                "ohlcv": daemon_status.get('ohlcv', 'stopped'),
-                "account": daemon_status.get('account', 'stopped')
-            }
+        # Get all service statuses
+        all_status = service_manager.get_all_status()
+
+        health_status["services"]["daemons"] = all_status["services"]
     except Exception as e:
-        logger.warning("Daemon status check failed", error=str(e))
+        logger.warning("Service status check failed", error=str(e))
+        health_status["services"]["daemons"] = {
+            "ticker": "unknown",
+            "ohlcv": "unknown",
+            "account": "unknown"
+        }
 
     return health_status
 
@@ -869,13 +1123,86 @@ async def deep_health_check():
     pass
 ```
 
-2. **Add circuit breaker for downstream APIs**:
+6. **Update `gateway.py` to integrate ServiceManager**:
 ```python
-# Add pybreaker dependency
-# Implement circuit breaker wrapper for critical operations
+from .services.manager import ServiceManager
+from .routers import services as services_router
+
+class MasterGateway:
+    def __init__(self):
+        self.logger = get_component_logger("fullon.master_api.gateway")
+        self.service_manager = ServiceManager()  # Initialize ServiceManager
+        self.app = self._create_app()
+        self.logger.info("Master API Gateway initialized")
+
+    def _create_app(self) -> FastAPI:
+        app = FastAPI(...)
+
+        # Add middlewares...
+
+        # Mount service control router (admin-only)
+        app.include_router(
+            services_router.router,
+            prefix=f"{settings.api_prefix}"
+        )
+
+        # Mount health router
+        from .routers import health
+        app.include_router(
+            health.router,
+            prefix=""  # Health at root level
+        )
+
+        # Mount ORM/OHLCV/Cache routers...
+
+        # Add shutdown handler
+        @app.on_event("shutdown")
+        async def shutdown_event():
+            """Gracefully stop all services on shutdown."""
+            logger.info("Shutting down services...")
+            await self.service_manager.stop_all()
+            logger.info("All services stopped")
+
+        return app
 ```
 
-3. **Write health tests**:
+7. **Write service control tests**:
+```python
+# tests/integration/test_service_control.py
+async def test_admin_can_start_service(admin_client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = await admin_client.post(
+        "/api/v1/services/ticker/start",
+        headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "started"
+
+async def test_non_admin_cannot_start_service(user_client, user_token):
+    headers = {"Authorization": f"Bearer {user_token}"}
+    response = await user_client.post(
+        "/api/v1/services/ticker/start",
+        headers=headers
+    )
+    assert response.status_code == 403  # Forbidden
+
+async def test_service_lifecycle(admin_client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Start
+    response = await admin_client.post("/api/v1/services/ticker/start", headers=headers)
+    assert response.json()["status"] == "started"
+
+    # Status check
+    response = await admin_client.get("/api/v1/services/ticker/status", headers=headers)
+    assert response.json()["status"] == "running"
+
+    # Stop
+    response = await admin_client.post("/api/v1/services/ticker/stop", headers=headers)
+    assert response.json()["status"] == "stopped"
+```
+
+8. **Write health tests**:
 ```python
 async def test_health_endpoint(client):
     response = await client.get("/health")
@@ -884,10 +1211,15 @@ async def test_health_endpoint(client):
 ```
 
 **Deliverables**:
-- ✅ Unified health endpoint at `/health`
+- ✅ Admin dependency (`get_admin_user()`) implemented
+- ✅ ServiceManager class managing three services as async background tasks
+- ✅ Service control router at `/api/v1/services/*` (admin-only)
+- ✅ Comprehensive health endpoint at `/health` (includes service status)
 - ✅ Deep health check at `/health/deep`
-- ✅ Circuit breaker implemented
-- ✅ Monitoring tests passing
+- ✅ Gateway integration with ServiceManager
+- ✅ Graceful shutdown handler stopping all services
+- ✅ Service control tests passing (admin access, lifecycle)
+- ✅ Health monitoring tests passing
 
 ---
 
@@ -1106,6 +1438,11 @@ fullon-ohlcv = {git = "ssh://git@github.com/ingmarAvocado/fullon_ohlcv.git"}
 fullon-orm-api = {path = "../fullon_orm_api", develop = true}
 fullon-ohlcv-api = {path = "../fullon_ohlcv_api", develop = true}
 fullon-cache-api = {path = "../fullon_cache_api", develop = true}
+
+# Fullon Services (async background task management - NEW Phase 6)
+fullon-ticker-service = {path = "../fullon_ticker_service", develop = true}
+fullon-ohlcv-service = {path = "../fullon_ohlcv_service", develop = true}
+fullon-account-service = {path = "../fullon_account_service", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
