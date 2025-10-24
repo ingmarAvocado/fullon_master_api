@@ -7,9 +7,12 @@ Validates:
 - Example follows all 4 critical patterns
 - OHLCV endpoints accessible via HTTP API
 """
+import subprocess
 import sys
+import time
 from pathlib import Path
 
+import httpx
 import pytest
 from fullon_log import get_component_logger
 
@@ -31,11 +34,49 @@ from example_ohlcv_routes import (  # noqa: E402  # type: ignore
 logger = get_component_logger("fullon.master_api.tests.e2e.ohlcv")
 
 
+@pytest.fixture(scope="module")
+def server_process():
+    """
+    Start server for E2E testing.
+
+    Yields:
+        subprocess.Popen: Server process
+    """
+    logger.info("Starting test server for OHLCV E2E tests")
+
+    # Start server
+    process = subprocess.Popen(
+        ["poetry", "run", "uvicorn", "fullon_master_api.main:app", "--port", "8000"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Wait for server to start
+    time.sleep(3)
+
+    # Verify server is running
+    try:
+        response = httpx.get("http://localhost:8000/health", timeout=5.0)
+        assert response.status_code == 200
+        logger.info("Test server started successfully")
+    except Exception as e:
+        process.kill()
+        logger.error("Test server failed to start", error=str(e))
+        raise RuntimeError(f"Server failed to start: {e}")
+
+    yield process
+
+    # Cleanup
+    logger.info("Stopping test server")
+    process.kill()
+    process.wait()
+
+
 class TestExampleOHLCVRoutes:
     """E2E tests for OHLCV routes example."""
 
     @pytest.mark.asyncio
-    async def test_example_ohlcv_data_runs(self):
+    async def test_example_ohlcv_data_runs(self, server_process):
         """Test example_ohlcv_data() runs without errors."""
         logger.info("Testing example_ohlcv_data execution")
         # Should not raise exceptions
@@ -43,28 +84,28 @@ class TestExampleOHLCVRoutes:
         logger.info("example_ohlcv_data completed successfully")
 
     @pytest.mark.asyncio
-    async def test_example_trade_data_runs(self):
+    async def test_example_trade_data_runs(self, server_process):
         """Test example_trade_data() runs without errors."""
         logger.info("Testing example_trade_data execution")
         await example_trade_data()
         logger.info("example_trade_data completed successfully")
 
     @pytest.mark.asyncio
-    async def test_example_time_range_query_runs(self):
+    async def test_example_time_range_query_runs(self, server_process):
         """Test example_time_range_query() runs without errors."""
         logger.info("Testing example_time_range_query execution")
         await example_time_range_query()
         logger.info("example_time_range_query completed successfully")
 
     @pytest.mark.asyncio
-    async def test_example_multiple_timeframes_runs(self):
+    async def test_example_multiple_timeframes_runs(self, server_process):
         """Test example_multiple_timeframes() runs without errors."""
         logger.info("Testing example_multiple_timeframes execution")
         await example_multiple_timeframes()
         logger.info("example_multiple_timeframes completed successfully")
 
     @pytest.mark.asyncio
-    async def test_ohlcv_client_methods_work(self):
+    async def test_ohlcv_client_methods_work(self, server_process):
         """Test OHLCVAPIClient methods work correctly."""
         logger.info("Testing OHLCVAPIClient methods")
 

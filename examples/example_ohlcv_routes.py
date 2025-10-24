@@ -107,10 +107,20 @@ class OHLCVAPIClient:
                 response = await client.get(url, params=params, headers=self._get_headers())
                 response.raise_for_status()
                 data = response.json()
-                logger.info("OHLCV data retrieved", exchange=exchange, symbol=symbol, count=len(data) if data else 0)
+                logger.info(
+                    "OHLCV data retrieved",
+                    exchange=exchange,
+                    symbol=symbol,
+                    count=len(data) if data else 0,
+                )
                 return data
             except httpx.HTTPStatusError as e:
-                logger.error("Get OHLCV failed", status=e.response.status_code, exchange=exchange, symbol=symbol)
+                logger.error(
+                    "Get OHLCV failed",
+                    status=e.response.status_code,
+                    exchange=exchange,
+                    symbol=symbol,
+                )
                 return None
 
     async def get_trades(
@@ -145,13 +155,27 @@ class OHLCVAPIClient:
                 response = await client.get(url, params=params, headers=self._get_headers())
                 response.raise_for_status()
                 data = response.json()
-                logger.info("Trade data retrieved", exchange=exchange, symbol=symbol, count=len(data) if data else 0)
+                logger.info(
+                    "Trade data retrieved",
+                    exchange=exchange,
+                    symbol=symbol,
+                    count=len(data) if data else 0,
+                )
                 return data
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
-                    logger.warning("Trades endpoint not available", exchange=exchange, symbol=symbol)
+                    logger.warning(
+                        "Trades endpoint not available",
+                        exchange=exchange,
+                        symbol=symbol,
+                    )
                 else:
-                    logger.error("Get trades failed", status=e.response.status_code, exchange=exchange, symbol=symbol)
+                    logger.error(
+                        "Get trades failed",
+                        status=e.response.status_code,
+                        exchange=exchange,
+                        symbol=symbol,
+                    )
                 return None
 
     async def get_latest_ohlcv(
@@ -177,10 +201,20 @@ class OHLCVAPIClient:
                 response = await client.get(url, params=params, headers=self._get_headers())
                 response.raise_for_status()
                 data = response.json()
-                logger.info("Latest OHLCV retrieved", exchange=exchange, symbol=symbol, timeframe=timeframe)
+                logger.info(
+                    "Latest OHLCV retrieved",
+                    exchange=exchange,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                )
                 return data
             except httpx.HTTPStatusError as e:
-                logger.error("Get latest OHLCV failed", status=e.response.status_code, exchange=exchange, symbol=symbol)
+                logger.error(
+                    "Get latest OHLCV failed",
+                    status=e.response.status_code,
+                    exchange=exchange,
+                    symbol=symbol,
+                )
                 return None
 
 
@@ -252,7 +286,10 @@ async def example_trade_data():
             print(f"      Volume: {recent.get('volume', 0):,.6f}")
             print(f"      Side:   {recent.get('side', 'N/A')}")
     else:
-        print("   ❌ Trade data not available (endpoint may not be implemented or database not set up)")
+        print(
+            "   ❌ Trade data not available "
+            "(endpoint may not be implemented or database not set up)"
+        )
 
 
 async def example_time_range_query():
