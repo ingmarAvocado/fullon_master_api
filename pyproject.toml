@@ -58,4 +58,6 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore::DeprecationWarning:pytest_asyncio.*",
+    "ignore::DeprecationWarning:uvloop.*",
+    "ignore:::pydantic.*",
 ]

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
 from fullon_orm_api import get_all_routers as get_orm_routers
 from fullon_orm_api.dependencies.auth import get_current_user as orm_get_current_user
+from fullon_ohlcv_api import get_all_routers as get_ohlcv_routers
 
 from .auth.dependencies import get_current_user as master_get_current_user
 from .auth.middleware import JWTMiddleware
@@ -130,6 +131,62 @@ class MasterGateway:
         orm_routers = self._apply_auth_overrides(orm_routers)
 
         return orm_routers
+
+    def _discover_ohlcv_routers(self) -> list:
+        """
+        Discover all routers from fullon_ohlcv_api.
+
+        Returns OHLCV API routers without mounting them. This allows
+        inspection and validation before integration.
+
+        Returns:
+            List of APIRouter instances from fullon_ohlcv_api
+
+        Raises:
+            ImportError: If fullon_ohlcv_api is not installed
+            RuntimeError: If router discovery fails
+        """
+        try:
+            # Get OHLCV routers from fullon_ohlcv_api
+            ohlcv_routers = get_ohlcv_routers()
+
+            # Validate we got routers back
+            if not ohlcv_routers:
+                self.logger.warning("No OHLCV routers discovered")
+                return []
+
+            # Log discovery success with structured logging
+            self.logger.info(
+                "OHLCV routers discovered",
+                router_count=len(ohlcv_routers),
+                router_types=[type(r).__name__ for r in ohlcv_routers]
+            )
+
+            # Log detailed router information
+            for idx, router in enumerate(ohlcv_routers):
+                router_prefix = getattr(router, 'prefix', '')
+                router_tags = getattr(router, 'tags', [])
+                route_count = len(router.routes)
+
+                self.logger.debug(
+                    "OHLCV router details",
+                    router_index=idx,
+                    prefix=router_prefix,
+                    tags=router_tags,
+                    route_count=route_count,
+                    routes=[route.path for route in router.routes]
+                )
+
+            return ohlcv_routers
+
+        except ImportError as e:
+            self.logger.error("fullon_ohlcv_api import failed", error=str(e))
+            raise ImportError(
+                "fullon_ohlcv_api not installed. Run: pip install fullon_ohlcv_api"
+            ) from e
+        except Exception as e:
+            self.logger.error("OHLCV router discovery failed", error=str(e))
+            raise RuntimeError("Failed to discover OHLCV routers") from e
 
     def _apply_auth_overrides(self, routers: list) -> list:
         """
