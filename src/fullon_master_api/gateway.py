@@ -4,7 +4,7 @@ Master API Gateway - Main application entry point.
 Composes existing Fullon APIs (ORM, OHLCV, Cache) with centralized JWT authentication.
 Follows ADR-001: Router Composition Over Direct Library Usage.
 """
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fullon_log import get_component_logger
 from fullon_orm_api import get_all_routers as get_orm_routers
@@ -155,27 +155,14 @@ class MasterGateway:
                 self.logger.warning("No OHLCV routers discovered")
                 return []
 
-            # Log discovery success with structured logging
+            # Apply auth override to each router
+            for router in ohlcv_routers:
+                self._apply_ohlcv_auth_overrides(router)
+
             self.logger.info(
-                "OHLCV routers discovered",
-                router_count=len(ohlcv_routers),
-                router_types=[type(r).__name__ for r in ohlcv_routers]
+                "OHLCV routers discovered with auth override",
+                router_count=len(ohlcv_routers)
             )
-
-            # Log detailed router information
-            for idx, router in enumerate(ohlcv_routers):
-                router_prefix = getattr(router, 'prefix', '')
-                router_tags = getattr(router, 'tags', [])
-                route_count = len(router.routes)
-
-                self.logger.debug(
-                    "OHLCV router details",
-                    router_index=idx,
-                    prefix=router_prefix,
-                    tags=router_tags,
-                    route_count=route_count,
-                    routes=[route.path for route in router.routes]
-                )
 
             return ohlcv_routers
 
@@ -225,6 +212,70 @@ class MasterGateway:
         )
 
         return routers
+
+    def _apply_ohlcv_auth_overrides(self, router) -> None:
+        """
+        Override auth dependencies in router to use master API auth.
+
+        Replaces any existing auth dependencies in OHLCV router routes
+        with master API's get_current_user dependency. This ensures
+        OHLCV endpoints use centralized JWT authentication.
+
+        WHY OHLCV REQUIRES AUTHENTICATION:
+        - Read-only endpoints still need user identification for access control
+        - Enables per-user rate limiting and audit logging
+        - Consistent with master API security model (all endpoints require auth)
+        - Allows tracking which users access which market data
+
+        Args:
+            router: APIRouter to override auth dependencies
+        """
+        override_count = 0
+
+        for route in router.routes:
+            if hasattr(route, 'dependant'):
+                # Inspect route dependencies
+                dependencies = route.dependant.dependencies
+
+                # Look for auth-related dependencies to override
+                auth_dependency_found = False
+                for dep in dependencies:
+                    # Check if dependency might be auth-related
+                    # (This is a heuristic - adjust based on fullon_ohlcv_api's actual auth)
+                    if hasattr(dep, 'call') and dep.call:
+                        dep_name = getattr(dep.call, '__name__', '')
+
+                        # Override if looks like auth dependency
+                        if 'auth' in dep_name.lower() or 'user' in dep_name.lower():
+                            # Replace with master API auth
+                            dep.call = master_get_current_user
+                            override_count += 1
+                            auth_dependency_found = True
+
+                            self.logger.debug(
+                                "Auth dependency overridden",
+                                route_path=route.path,
+                                original_dep=dep_name,
+                                new_dep="get_current_user"
+                            )
+
+                # If no auth dependency found, ADD it (OHLCV requires auth)
+                if not auth_dependency_found:
+                    # Add get_current_user as dependency
+                    route.dependencies.append(Depends(master_get_current_user))
+                    override_count += 1
+
+                    self.logger.debug(
+                        "Auth dependency added",
+                        route_path=route.path,
+                        dependency="get_current_user"
+                    )
+
+        self.logger.info(
+            "Auth overrides applied to OHLCV router",
+            route_count=len(router.routes),
+            overrides=override_count
+        )
 
     def _mount_orm_routers(self, app: FastAPI) -> None:
         """
