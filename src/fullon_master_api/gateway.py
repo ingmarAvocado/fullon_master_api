@@ -37,7 +37,7 @@ class MasterGateway:
     def __init__(self):
         """Initialize the Master API Gateway."""
         # CRITICAL: Create component-specific logger
-        self.logger = get_component_logger("fullon.master_api.gateway")
+        self.logger = get_component_logger("fullon.master_api")
         self.app = self._create_app()
         self.logger.info("Master API Gateway initialized")
 
@@ -82,7 +82,7 @@ class MasterGateway:
                 f"{settings.api_prefix}/auth/login",
                 f"{settings.api_prefix}/auth/verify",
                 f"{settings.api_prefix}/cache/ws/*",  # Cache WebSocket endpoints (wildcard)
-            ]
+            ],
         )
 
         self.logger.info("JWT middleware configured")
@@ -347,7 +347,9 @@ class MasterGateway:
             return
 
         # Mount each router with OHLCV prefix
-        for router in ohlcv_routers:
+        # IMPORTANT: Mount in reverse order so more specific routes (with more path params)
+        # are registered first and matched before less specific routes
+        for router in reversed(ohlcv_routers):
             # Get router metadata
             router_prefix = getattr(router, "prefix", "")
             router_tags = getattr(router, "tags", [])
@@ -402,16 +404,7 @@ class MasterGateway:
         self.logger.info(
             "Cache WebSocket routers mounted",
             prefix="/api/v1/cache",
-            endpoints=[
-                "/ws",
-                "/ws/tickers/{connection_id}",
-                "/ws/orders/{connection_id}",
-                "/ws/trades/{connection_id}",
-                "/ws/accounts/{connection_id}",
-                "/ws/bots/{connection_id}",
-                "/ws/ohlcv/{connection_id}",
-                "/ws/process/{connection_id}",
-            ],
+            endpoint_count=8,
         )
 
     def get_app(self) -> FastAPI:

@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 """
-Example: Cache WebSocket Streaming with JWT Authentication
+Example: Cache WebSocket Streaming - Self-Contained Test
+
+THIS EXAMPLE IS FULLY SELF-CONTAINED:
+- Creates its own test databases (ORM + OHLCV)
+- Populates demo data (exchanges, symbols for cache)
+- Starts its own embedded test server
+- Tests WebSocket streaming with JWT authentication
+- Cleans up databases when done
+
+NO EXTERNAL SETUP REQUIRED - just run it!
+
+Usage:
+    python examples/example_cache_websocket.py
+    python examples/example_cache_websocket.py --stream tickers --symbol BTC/USDT
+    python examples/example_cache_websocket.py --auth-demo  # Show auth failure demo
 
 Demonstrates:
 - JWT-authenticated WebSocket connections to cache API
@@ -16,17 +30,68 @@ Expected WebSocket Endpoints (JWT-authenticated, proxied from fullon_cache_api):
 - ws://localhost:8000/api/v1/cache/ws/trades/{exchange}/{symbol}?token=jwt_token
 - ws://localhost:8000/api/v1/cache/ws/orders/{exchange}?token=jwt_token
 - ws://localhost:8000/api/v1/cache/ws/balances/{exchange_id}?token=jwt_token
-
-Authentication:
-- All WebSocket endpoints require JWT authentication
-- Include ?token=jwt_token query parameter in URLs
-- Demo JWT token is automatically generated for examples
-
-Usage:
-    python examples/example_cache_websocket.py
-    python examples/example_cache_websocket.py --stream tickers --symbol BTC/USDT
-    python examples/example_cache_websocket.py --auth-demo  # Show auth failure demo
 """
+# 1. Standard library imports ONLY
+import argparse
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+# 2. Third-party imports (non-fullon packages)
+import websockets
+
+# 3. Generate test database names FIRST (before .env and imports)
+def generate_test_db_name() -> str:
+    """Generate unique test database name."""
+    import random, string
+    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+test_db_base = generate_test_db_name()
+test_db_orm = test_db_base
+test_db_ohlcv = f"{test_db_base}_ohlcv"
+
+# 4. Set ALL database environment variables BEFORE loading .env
+os.environ["DB_NAME"] = test_db_orm
+os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+os.environ["DB_TEST_NAME"] = test_db_orm
+
+# 5. NOW load .env file
+project_root = Path(__file__).parent.parent
+try:
+    from dotenv import load_dotenv
+    load_dotenv(project_root / ".env", override=False)
+except: pass
+
+# 6. Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+# 7. NOW safe to import ALL fullon modules
+from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
+from fullon_log import get_component_logger
+from fullon_master_api.auth.jwt import JWTHandler
+from fullon_master_api.config import settings
+from fullon_orm import init_db
+
+# 8. Initialize logger
+logger = get_component_logger("fullon.examples.cache_websocket")
+
+WS_BASE_URL = "ws://localhost:8000/api/v1/cache"
+
+# JWT Handler for authentication
+jwt_handler = JWTHandler(settings.jwt_secret_key)
+
+async def start_test_server():
+    """Start uvicorn server as async background task."""
+    import uvicorn
+    from fullon_master_api.main import app
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
+    server = uvicorn.Server(config)
+    task = asyncio.create_task(server.serve())
+    return server, task
+
+
 import argparse
 import asyncio
 import json
@@ -299,7 +364,27 @@ async def demonstrate_auth_failure(exchange: str = "kraken", symbol: str = "BTC/
     print("-" * 60)
 
 
-async def main(
+
+
+async def setup_test_environment():
+    """Setup test databases with demo data."""
+    print("\n" + "=" * 60)
+    print("Setting up self-contained test environment")
+    print("=" * 60)
+    print(f"\n1. Creating dual test databases:")
+    print(f"   ORM DB:   {test_db_orm}")
+    print(f"   OHLCV DB: {test_db_ohlcv}")
+    await create_dual_test_databases(test_db_base)
+    print("\n2. Initializing database schema...")
+    await init_db()
+    print("   ✅ Schema initialized")
+    print("\n3. Installing demo data (exchanges, symbols)...")
+    await install_demo_data()
+    print("\n" + "=" * 60)
+    print("✅ Test environment ready!")
+    print("=" * 60)
+
+async def run_websocket_examples(
     stream_type: str = "tickers",
     exchange: str = "kraken",
     symbol: str = "BTC/USDC",
@@ -307,8 +392,8 @@ async def main(
     duration: int = 10,
     show_auth_demo: bool = False,
 ):
-    """Run WebSocket streaming example."""
-    print("=" * 60)
+    """Run WebSocket streaming examples."""
+    print("\n" + "=" * 60)
     print("Fullon Master API - Cache WebSocket Example")
     print("=" * 60)
 
@@ -342,6 +427,67 @@ async def main(
     print("   - Use --auth-demo to see authentication failure examples")
     print("=" * 60)
 
+async def main(
+    stream_type: str = "tickers",
+    exchange: str = "kraken",
+    symbol: str = "BTC/USDC",
+    exchange_id: int = 1,
+    duration: int = 10,
+    show_auth_demo: bool = False,
+):
+    """Main entry point - self-contained with setup and cleanup."""
+    print("=" * 60)
+    print("Fullon Master API - Cache WebSocket Example")
+    print("SELF-CONTAINED: Creates, tests, and cleans up databases")
+    print("=" * 60)
+
+    server = None
+    server_task = None
+    try:
+        # Setup test environment
+        await setup_test_environment()
+
+        # Start embedded test server
+        print("\n4. Starting test server on localhost:8000...")
+        server, server_task = await start_test_server()
+        await asyncio.sleep(2)
+        print("   ✅ Server started")
+
+        # Run WebSocket examples
+        await run_websocket_examples(stream_type, exchange, symbol, exchange_id, duration, show_auth_demo)
+
+    except Exception as e:
+        print(f"\n❌ Example failed: {e}")
+        import traceback
+        traceback.print_exc()
+        logger.error("Example failed", error=str(e))
+
+    finally:
+        # Stop test server
+        if server:
+            print("\n   Stopping test server...")
+            server.should_exit = True
+            if server_task:
+                try:
+                    await asyncio.wait_for(server_task, timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Server shutdown timed out")
+            print("   ✅ Server stopped")
+
+        # Always cleanup test databases
+        print("\n" + "=" * 60)
+        print("Cleaning up test databases...")
+        print("=" * 60)
+        try:
+            logger.info("Dropping test databases", orm_db=test_db_orm, ohlcv_db=test_db_ohlcv)
+            await drop_dual_test_databases(test_db_orm, test_db_ohlcv)
+            print("✅ Test databases cleaned up successfully")
+            logger.info("Cleanup complete")
+        except Exception as cleanup_error:
+            print(f"⚠️  Error during cleanup: {cleanup_error}")
+            logger.warning("Cleanup error", error=str(cleanup_error))
+
+    print("=" * 60)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cache WebSocket Streaming Example")

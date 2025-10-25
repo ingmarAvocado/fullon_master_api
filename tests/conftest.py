@@ -35,7 +35,12 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 
@@ -49,9 +54,11 @@ load_dotenv()
 # SAFETY CHECKS - Prevent Production Database Access
 # ============================================================================
 
+
 def _validate_test_environment():
     """Validate that we're in a test environment and not accidentally using production database."""
     import sys
+
     is_pytest = "pytest" in sys.modules or (sys.argv and "pytest" in sys.argv[0])
 
     if is_pytest:
@@ -59,8 +66,12 @@ def _validate_test_environment():
         current_db = os.getenv("DB_NAME", "").lower()
 
         if current_db in production_db_names:
-            print(f"WARNING: DB_NAME is set to '{current_db}' but tests will use isolated test databases.")
-            print("This is safe - each test creates its own database like 'test_master_api_module_worker'")
+            print(
+                f"WARNING: DB_NAME is set to '{current_db}' but tests will use isolated test databases."
+            )
+            print(
+                "This is safe - each test creates its own database like 'test_master_api_module_worker'"
+            )
         return
 
     # Non-test context: strict validation
@@ -79,6 +90,7 @@ def _validate_test_environment():
             f"SAFETY CHECK FAILED: Database host '{host}' appears to be a production host. "
             f"Use localhost or development hosts only."
         )
+
 
 # Run safety check on import
 _validate_test_environment()
@@ -110,11 +122,7 @@ async def create_test_database(db_name: str) -> None:
     password = os.getenv("DB_PASSWORD", "password")
 
     conn = await asyncpg.connect(
-        host=host,
-        port=port,
-        user=user,
-        password=password,
-        database="postgres"
+        host=host, port=port, user=user, password=password, database="postgres"
     )
 
     try:
@@ -140,11 +148,7 @@ async def drop_test_database(db_name: str) -> None:
     password = os.getenv("DB_PASSWORD", "password")
 
     conn = await asyncpg.connect(
-        host=host,
-        port=port,
-        user=user,
-        password=password,
-        database="postgres"
+        host=host, port=port, user=user, password=password, database="postgres"
     )
 
     try:
@@ -180,8 +184,8 @@ def get_test_db_names(request) -> tuple[str, str]:
         Worker gw0: ("test_master_api_module_gw0", "test_master_api_module_gw0_ohlcv")
         Worker gw1: ("test_master_api_module_gw1", "test_master_api_module_gw1_ohlcv")
     """
-    module_name = request.module.__name__.split('.')[-1]
-    worker_id = getattr(request.config, 'workerinput', {}).get('workerid', '')
+    module_name = request.module.__name__.split(".")[-1]
+    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "")
 
     if worker_id:
         orm_db = f"test_master_api_{module_name}_{worker_id}"
@@ -285,6 +289,7 @@ class DatabaseTestContext:
         """Get ApiKeyRepository with current session."""
         if self._api_key_repo is None:
             from fullon_orm.repositories import ApiKeyRepository
+
             self._api_key_repo = ApiKeyRepository(self.session)
         return self._api_key_repo
 
@@ -293,6 +298,7 @@ class DatabaseTestContext:
         """Get UserRepository with current session."""
         if self._user_repo is None:
             from fullon_orm.repositories import UserRepository
+
             self._user_repo = UserRepository(self.session)
         return self._user_repo
 
@@ -301,6 +307,7 @@ class DatabaseTestContext:
         """Get ExchangeRepository with current session."""
         if self._exchange_repo is None:
             from fullon_orm.repositories import ExchangeRepository
+
             self._exchange_repo = ExchangeRepository(self.session)
         return self._exchange_repo
 
@@ -309,6 +316,7 @@ class DatabaseTestContext:
         """Get SymbolRepository with current session."""
         if self._symbol_repo is None:
             from fullon_orm.repositories import SymbolRepository
+
             self._symbol_repo = SymbolRepository(self.session)
         return self._symbol_repo
 
@@ -317,6 +325,7 @@ class DatabaseTestContext:
         """Get BotRepository with current session."""
         if self._bot_repo is None:
             from fullon_orm.repositories import BotRepository
+
             self._bot_repo = BotRepository(self.session)
         return self._bot_repo
 
@@ -325,6 +334,7 @@ class DatabaseTestContext:
         """Get StrategyRepository with current session."""
         if self._strategy_repo is None:
             from fullon_orm.repositories import StrategyRepository
+
             self._strategy_repo = StrategyRepository(self.session)
         return self._strategy_repo
 
@@ -333,6 +343,7 @@ class DatabaseTestContext:
         """Get OrderRepository with current session."""
         if self._order_repo is None:
             from fullon_orm.repositories import OrderRepository
+
             self._order_repo = OrderRepository(self.session)
         return self._order_repo
 
@@ -341,6 +352,7 @@ class DatabaseTestContext:
         """Get TradeRepository with current session."""
         if self._trade_repo is None:
             from fullon_orm.repositories import TradeRepository
+
             self._trade_repo = TradeRepository(self.session)
         return self._trade_repo
 
@@ -386,7 +398,8 @@ async def db_context(request):
 
     # Clear cached database managers so middleware uses test DB
     from fullon_orm import database
-    if hasattr(database, '_db_manager') and database._db_manager is not None:
+
+    if hasattr(database, "_db_manager") and database._db_manager is not None:
         database._db_manager = None
 
     try:
@@ -421,7 +434,8 @@ async def db_context(request):
 
         # Clear cache again so next test/module gets fresh connection
         from fullon_orm import database
-        if hasattr(database, '_db_manager') and database._db_manager is not None:
+
+        if hasattr(database, "_db_manager") and database._db_manager is not None:
             database._db_manager = None
 
 
@@ -460,10 +474,7 @@ async def dual_test_databases(request) -> AsyncGenerator[dict[str, str], None]:
     await get_or_create_engine(ohlcv_db_name, create_ohlcv_schemas=True)
 
     try:
-        yield {
-            "orm_db": orm_db_name,
-            "ohlcv_db": ohlcv_db_name
-        }
+        yield {"orm_db": orm_db_name, "ohlcv_db": ohlcv_db_name}
     finally:
         # Restore environment variables
         if original_orm_db:
@@ -536,10 +547,13 @@ async def clear_symbol_cache(request):
 
     This is only active for symbol repository tests to avoid unnecessary overhead.
     """
-    test_file = request.fspath.basename if hasattr(request.fspath, 'basename') else str(request.fspath)
+    test_file = (
+        request.fspath.basename if hasattr(request.fspath, "basename") else str(request.fspath)
+    )
     if "symbol" in test_file.lower():
         try:
             from fullon_orm.cache import cache_manager
+
             cache_manager.invalidate_symbol_caches()
             cache_manager.invalidate_exchange_caches()
         except Exception:
@@ -558,6 +572,7 @@ def cleanup(request):
 
     This disposes all engines and drops all test databases at the end of the test session.
     """
+
     def finalizer():
         """Properly dispose engines and drop databases."""
         import asyncio
@@ -601,9 +616,9 @@ def worker_id(request):
     Returns 'master' for single-threaded execution, or worker ID (e.g., 'gw0', 'gw1')
     for parallel execution with pytest-xdist.
     """
-    if hasattr(request.config, 'workerinput'):
-        return request.config.workerinput.get('workerid', 'master')
-    return 'master'
+    if hasattr(request.config, "workerinput"):
+        return request.config.workerinput.get("workerid", "master")
+    return "master"
 
 
 # ============================================================================
@@ -659,7 +674,7 @@ def redis_db(worker_id, request) -> int:
         db_num = ((db_num - 1) % 15) + 1
 
     # Set environment variable for this test
-    os.environ['REDIS_DB'] = str(db_num)
+    os.environ["REDIS_DB"] = str(db_num)
     return db_num
 
 
@@ -681,7 +696,7 @@ def redis_db_per_module(request):
         It sets REDIS_DB environment variable and resets ConnectionPool after module.
     """
     # Get worker ID from pytest-xdist if available
-    worker_id = getattr(request.config, 'workerinput', {}).get('workerid', 'master')
+    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
 
     # Get worker number for proper isolation
     if worker_id == "master":
@@ -715,14 +730,17 @@ def redis_db_per_module(request):
     # Calculate final DB number within Redis limits (1-15)
     db_num = ((base_db + db_offset - 1) % 15) + 1
 
-    os.environ['REDIS_DB'] = str(db_num)
-    print(f"\n[REDIS DB SELECT] Worker {worker_id} using Redis DB {db_num} for test file {test_file}")
+    os.environ["REDIS_DB"] = str(db_num)
+    print(
+        f"\n[REDIS DB SELECT] Worker {worker_id} using Redis DB {db_num} for test file {test_file}"
+    )
 
     yield db_num
 
     # Reset ConnectionPool after module
     try:
         from fullon_cache.connection import ConnectionPool
+
         ConnectionPool.reset()
     except Exception:
         # fullon_cache might not be available yet, that's OK

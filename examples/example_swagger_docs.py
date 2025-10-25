@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 """
-Example: Accessing API Documentation
+Example: Accessing API Documentation - Self-Contained Test
+
+THIS EXAMPLE IS FULLY SELF-CONTAINED:
+- Starts its own embedded test server
+- Fetches OpenAPI schema programmatically
+- Lists all available endpoints
+- Stops the server when done
+
+NO EXTERNAL SETUP REQUIRED - just run it!
+
+Usage:
+    python examples/example_swagger_docs.py
+    python examples/example_swagger_docs.py --open-browser
 
 Demonstrates:
 - Opening Swagger UI documentation
 - Opening ReDoc documentation
 - Viewing OpenAPI schema programmatically
 - Listing all available endpoints
-
-Usage:
-    python examples/example_swagger_docs.py
-    python examples/example_swagger_docs.py --open-browser
 
 Expected Output:
 - Lists all API endpoints
@@ -26,6 +34,18 @@ from fullon_log import get_component_logger
 logger = get_component_logger("fullon.examples.swagger_docs")
 
 API_BASE_URL = "http://localhost:8000"
+
+
+async def start_test_server():
+    """Start uvicorn server as async background task."""
+    import uvicorn
+    from fullon_master_api.main import app
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
+    server = uvicorn.Server(config)
+    task = asyncio.create_task(server.serve())
+
+    return server, task
 
 
 async def get_openapi_schema() -> Optional[dict]:
@@ -51,7 +71,6 @@ async def get_openapi_schema() -> Optional[dict]:
             logger.error("Cannot connect to API")
             print("\n❌ Connection Failed")
             print(f"   Server not running on {API_BASE_URL}")
-            print("   Run: make run")
             return None
 
         except httpx.HTTPStatusError as e:
@@ -160,10 +179,10 @@ async def show_tags(schema: dict):
                 print(f"  {description}")
 
 
-async def main(open_browser_flag: bool = False):
-    """Run API documentation example."""
-    print("=" * 60)
-    print("Fullon Master API - Documentation Explorer")
+async def run_examples(open_browser_flag: bool = False):
+    """Run API documentation examples."""
+    print("\n" + "=" * 60)
+    print("API Documentation Explorer")
     print("=" * 60)
 
     # Show documentation URLs
@@ -174,11 +193,8 @@ async def main(open_browser_flag: bool = False):
     schema = await get_openapi_schema()
 
     if not schema:
-        print("\n⚠️  Could not fetch schema - is the server running?")
-        print("\nTo start the server:")
-        print("  make run")
-        print("=" * 60)
-        return
+        print("\n⚠️  Could not fetch schema")
+        return False
 
     # Show API info
     await show_api_info(schema)
@@ -198,6 +214,53 @@ async def main(open_browser_flag: bool = False):
     print("   - Use the 'Authorize' button to add JWT token")
     print("   - ReDoc provides cleaner documentation view")
     print("   - OpenAPI schema can be used to generate client SDKs")
+    print("=" * 60)
+
+    return True
+
+
+async def main(open_browser_flag: bool = False):
+    """
+    Main entry point - self-contained with setup and cleanup.
+    """
+    print("=" * 60)
+    print("Fullon Master API - Documentation Explorer")
+    print("SELF-CONTAINED: Starts, explores, and stops server automatically")
+    print("=" * 60)
+
+    server = None
+    server_task = None
+    try:
+        # Start embedded test server
+        print("\n1. Starting test server on localhost:8000...")
+        server, server_task = await start_test_server()
+        await asyncio.sleep(2)  # Wait for server to start
+        print("   ✅ Server started")
+
+        # Run examples
+        success = await run_examples(open_browser_flag)
+
+        if not success:
+            logger.error("Documentation examples failed")
+
+    except Exception as e:
+        print(f"\n❌ Example failed: {e}")
+        import traceback
+        traceback.print_exc()
+        logger.error("Example failed", error=str(e))
+
+    finally:
+        # Stop test server
+        if server:
+            print("\n   Stopping test server...")
+            server.should_exit = True
+            if server_task:
+                try:
+                    await asyncio.wait_for(server_task, timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Server shutdown timed out")
+            print("   ✅ Server stopped")
+
     print("=" * 60)
 
 

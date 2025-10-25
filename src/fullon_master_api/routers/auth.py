@@ -64,10 +64,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> dict:
         )
 
     # Generate JWT token using User ORM properties
+    # Note: User model has 'mail' not 'username' or 'email'
     token = jwt_handler.generate_token(
         user_id=user.uid,
-        username=user.username,
-        email=user.email
+        username=user.mail,  # Use mail as username (email serves as username)
+        email=user.mail      # User model stores email in 'mail' field
     )
 
     logger.info(

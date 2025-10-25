@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """
-Example: API Key Authentication with Fullon Master API
+Example: API Key Authentication - Self-Contained Test
+
+THIS EXAMPLE IS FULLY SELF-CONTAINED:
+- Creates its own test databases (ORM + OHLCV)
+- Populates demo data (users for authentication)
+- Starts its own embedded test server
+- Tests complete API key authentication workflow
+- Cleans up databases when done
+
+NO EXTERNAL SETUP REQUIRED - just run it!
+
+Usage:
+    python examples/example_api_key_auth.py
 
 Demonstrates complete API key authentication workflow:
 1. User logs in with JWT (POST /api/v1/auth/login)
@@ -12,51 +24,64 @@ Demonstrates complete API key authentication workflow:
 7. Tests expired key rejection (create key with past expires_at)
 8. Tests inactive key rejection (deactivate key and verify rejection)
 9. Tests invalid key format (malformed key string without prefix)
-
-Error Handling Requirements:
-- Demonstrate expired key rejection (set expires_at in past, verify 401)
-- Demonstrate inactive key rejection (is_active=False, verify 401)
-- Demonstrate invalid key format (missing prefix, verify 401)
-- Show proper exception handling with try/except blocks
-- Log all validation failures using fullon_log patterns
-
-Expected Output:
-```
-Step 1: Login with JWT
-✓ JWT Token obtained: eyJ0eXAiOiJKV1QiLCJhbGc...
-
-Step 2: Create API Key (using JWT auth)
-✓ API Key created: fullon_ak_dGVzdF9hcGlfa2V5XzEyMzQ1Njc4OTA...
-
-Step 3: Access endpoint with API Key
-✓ API Key authentication successful
-✓ User data matches JWT-authenticated request
-
-Step 4: List all user API keys
-✓ Found 1 active API key
-
-Step 5: Deactivate API key
-✓ API key deactivated successfully
-
-Step 6: Verify deactivated key fails
-✓ Deactivated key correctly rejected (401 Unauthorized)
-
-Step 7: Test expired key rejection
-✓ Creating API key with past expiration date
-✓ Expired key correctly rejected (401 Unauthorized)
-✓ Error message: "API key has expired"
-
-Step 8: Test invalid key format
-✓ Testing key without required prefix
-✓ Invalid format correctly rejected (401 Unauthorized)
-✓ Error message: "Invalid API key format"
-
-Step 9: Verify JWT authentication still works
-✓ JWT authentication successful (no regression)
-
-All tests passed! ✓
-```
 """
+# 1. Standard library imports ONLY
+import asyncio
+import json
+import os
+import sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import Dict, Any, Optional
+
+# 2. Third-party imports (non-fullon packages)
+import httpx
+
+# 3. Generate test database names FIRST (before .env and imports)
+def generate_test_db_name() -> str:
+    """Generate unique test database name."""
+    import random, string
+    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+test_db_base = generate_test_db_name()
+test_db_orm = test_db_base
+test_db_ohlcv = f"{test_db_base}_ohlcv"
+
+# 4. Set ALL database environment variables BEFORE loading .env
+os.environ["DB_NAME"] = test_db_orm
+os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+os.environ["DB_TEST_NAME"] = test_db_orm
+
+# 5. NOW load .env file
+project_root = Path(__file__).parent.parent
+try:
+    from dotenv import load_dotenv
+    load_dotenv(project_root / ".env", override=False)
+except: pass
+
+# 6. Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+# 7. NOW safe to import ALL fullon modules
+from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
+from fullon_log import get_component_logger
+from fullon_orm import init_db
+
+# 8. Initialize logger
+logger = get_component_logger("fullon.api_key_auth.example")
+
+API_BASE_URL = "http://localhost:8000"
+
+async def start_test_server():
+    """Start uvicorn server as async background task."""
+    import uvicorn
+    from fullon_master_api.main import app
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
+    server = uvicorn.Server(config)
+    task = asyncio.create_task(server.serve())
+    return server, task
+
+
 
 import asyncio
 import json
@@ -437,19 +462,86 @@ class ApiKeyAuthExample:
             return False
 
 
+
+
+async def setup_test_environment():
+    """Setup test databases with demo data."""
+    print("\n" + "=" * 60)
+    print("Setting up self-contained test environment")
+    print("=" * 60)
+    print(f"\n1. Creating dual test databases:")
+    print(f"   ORM DB:   {test_db_orm}")
+    print(f"   OHLCV DB: {test_db_ohlcv}")
+    await create_dual_test_databases(test_db_base)
+    print("\n2. Initializing database schema...")
+    await init_db()
+    print("   ✅ Schema initialized")
+    print("\n3. Installing demo data (users for auth)...")
+    await install_demo_data()
+    print("\n" + "=" * 60)
+    print("✅ Test environment ready!")
+    print("=" * 60)
+
 async def main():
-    """Main entry point for the API key authentication example."""
-    example = ApiKeyAuthExample()
+    """Main entry point - self-contained with setup and cleanup."""
+    print("=" * 60)
+    print("Fullon Master API - API Key Authentication Example")
+    print("SELF-CONTAINED: Creates, tests, and cleans up databases")
+    print("=" * 60)
 
-    success = await example.run_example()
-    if success:
-        print("\n🎉 All API key authentication tests passed!")
-        return 0
-    else:
-        print("\n❌ Some tests failed. Check logs for details.")
-        return 1
+    server = None
+    server_task = None
+    try:
+        # Setup test environment
+        await setup_test_environment()
 
+        # Start embedded test server
+        print("\n4. Starting test server on localhost:8000...")
+        server, server_task = await start_test_server()
+        await asyncio.sleep(2)
+        print("   ✅ Server started")
+
+        # Run example
+        example = ApiKeyAuthExample()
+        success = await example.run_example()
+        
+        if success:
+            print("\n🎉 All API key authentication tests passed!")
+        else:
+            print("\n❌ Some tests failed. Check logs for details.")
+
+    except Exception as e:
+        print(f"\n❌ Example failed: {e}")
+        import traceback
+        traceback.print_exc()
+        logger.error("Example failed", error=str(e))
+
+    finally:
+        # Stop test server
+        if server:
+            print("\n   Stopping test server...")
+            server.should_exit = True
+            if server_task:
+                try:
+                    await asyncio.wait_for(server_task, timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Server shutdown timed out")
+            print("   ✅ Server stopped")
+
+        # Always cleanup test databases
+        print("\n" + "=" * 60)
+        print("Cleaning up test databases...")
+        print("=" * 60)
+        try:
+            logger.info("Dropping test databases", orm_db=test_db_orm, ohlcv_db=test_db_ohlcv)
+            await drop_dual_test_databases(test_db_orm, test_db_ohlcv)
+            print("✅ Test databases cleaned up successfully")
+            logger.info("Cleanup complete")
+        except Exception as cleanup_error:
+            print(f"⚠️  Error during cleanup: {cleanup_error}")
+            logger.warning("Cleanup error", error=str(cleanup_error))
+
+    print("=" * 60)
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    exit(exit_code)
+    asyncio.run(main())

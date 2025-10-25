@@ -368,158 +368,144 @@ async def install_demo_data():
 
 
 async def install_ohlcv_sample_data():
-    """Install sample OHLCV data for testing OHLCV API endpoints.
-
-    Creates sample candle data for:
-    - kraken.ohlcv_1m (1-minute candles)
-    - kraken.ohlcv_1h (1-hour candles)
-    - kraken.ohlcv_1d (1-day candles)
-
-    Uses direct SQL because OHLCV data is in a separate database with TimescaleDB.
     """
-    print_info("Installing OHLCV sample data...")
+    Install realistic OHLCV sample data using fullon_ohlcv repositories.
 
-    import asyncpg
-    from datetime import datetime, timedelta, timezone
-    from decimal import Decimal
-
-    # Get OHLCV database configuration
-    ohlcv_db_name = os.getenv("DB_OHLCV_NAME", os.getenv("DB_NAME", "fullon2"))
-    host = os.getenv("DB_HOST", "localhost")
-    port = int(os.getenv("DB_PORT", "5432"))
-    user = os.getenv("DB_USER", "postgres")
-    password = os.getenv("DB_PASSWORD", "")
+    Architecture:
+    1. Use CandleRepository to properly initialize symbol tables
+    2. Call init_symbol() to create TimescaleDB hypertables:
+       - kraken.btc_usdc_trades
+       - kraken.btc_usdc_candles1m
+       - kraken.btc_usdc_candles1m_view (continuous aggregate)
+    3. Insert 30 days of 1-minute candles (43,200 candles)
+    4. TimeseriesRepository will aggregate these into hourly/daily on query
+    """
+    print_info("Installing OHLCV sample data via fullon_ohlcv repositories...")
 
     try:
-        # Connect to OHLCV database
-        conn = await asyncpg.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=ohlcv_db_name
+        from fullon_ohlcv.repositories.ohlcv import CandleRepository
+        from fullon_ohlcv.models import Candle
+        from datetime import datetime, timedelta, timezone
+        import random
+
+        # Get OHLCV database configuration
+        ohlcv_db_name = os.getenv("DB_OHLCV_NAME", os.getenv("DB_NAME", "fullon2"))
+        print_info(f"  Using OHLCV database: {ohlcv_db_name}")
+
+        # CRITICAL: Override DB_NAME for fullon_ohlcv to use correct database
+        original_db_name = os.environ.get('DB_NAME')
+        os.environ['DB_NAME'] = ohlcv_db_name
+
+        # Step 1: Initialize CandleRepository
+        print_info("  Initializing CandleRepository for hyperliquid/BTC/USDC...")
+        repo = CandleRepository(
+            exchange="hyperliquid",
+            symbol="BTC/USDC",
+            test=False  # Uses DB_NAME from environment
         )
+        await repo.initialize()
+        print_success("  Repository initialized")
 
-        try:
-            # Create kraken schema if it doesn't exist
-            await conn.execute("CREATE SCHEMA IF NOT EXISTS kraken")
-            print_info("  Created/verified kraken schema")
+        # Step 2: Create symbol tables via init_symbol()
+        print_info("  Creating TimescaleDB tables via init_symbol()...")
+        success = await repo.init_symbol()
+        if not success:
+            raise Exception("init_symbol() failed - check TimescaleDB extension")
 
-            # Create OHLCV tables (matching fullon_ohlcv_service structure)
-            # 1-minute table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS kraken.ohlcv_1m (
-                    time TIMESTAMPTZ NOT NULL,
-                    symbol_id INTEGER NOT NULL,
-                    open NUMERIC,
-                    high NUMERIC,
-                    low NUMERIC,
-                    close NUMERIC,
-                    volume NUMERIC,
-                    PRIMARY KEY (time, symbol_id)
+        print_success("  ✅ Created TimescaleDB tables:")
+        print_info("     - hyperliquid.btc_usdc_trades (hypertable)")
+        print_info("     - hyperliquid.btc_usdc_candles1m (hypertable)")
+        print_info("     - hyperliquid.btc_usdc_candles1m_view (continuous aggregate)")
+
+        # Step 3: Generate 30 days of realistic 1-minute candles
+        now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        total_days = 30
+        total_candles = total_days * 24 * 60  # 43,200
+
+        print_info(f"  Generating {total_candles:,} x 1-minute candles ({total_days} days)...")
+
+        # Realistic price simulation
+        base_price = 43000.0
+        current_price = base_price
+
+        # Insert in batches
+        batch_size = 1000
+        candles_inserted = 0
+
+        for batch_start in range(0, total_candles, batch_size):
+            batch_candles = []
+            batch_end = min(batch_start + batch_size, total_candles)
+
+            for i in range(batch_start, batch_end):
+                timestamp = now - timedelta(minutes=total_candles - 1 - i)
+
+                # Random walk with mean reversion
+                drift = random.uniform(-0.0005, 0.0005)
+                volatility = random.uniform(-30, 30)
+                current_price = current_price * (1 + drift) + volatility
+
+                # Mean reversion
+                if current_price > base_price * 1.1:
+                    current_price -= random.uniform(50, 150)
+                elif current_price < base_price * 0.9:
+                    current_price += random.uniform(50, 150)
+
+                # OHLC for this minute
+                open_price = current_price
+                high = open_price + random.uniform(5, 25)
+                low = open_price - random.uniform(5, 20)
+                close_price = open_price + random.uniform(-15, 15)
+                volume = random.uniform(0.5, 5.0)
+
+                # Ensure validity
+                high = max(high, open_price, close_price)
+                low = min(low, open_price, close_price)
+
+                candle = Candle(
+                    timestamp=timestamp,
+                    open=open_price,
+                    high=high,
+                    low=low,
+                    close=close_price,
+                    vol=volume
                 )
-            """)
+                batch_candles.append(candle)
 
-            # 1-hour table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS kraken.ohlcv_1h (
-                    time TIMESTAMPTZ NOT NULL,
-                    symbol_id INTEGER NOT NULL,
-                    open NUMERIC,
-                    high NUMERIC,
-                    low NUMERIC,
-                    close NUMERIC,
-                    volume NUMERIC,
-                    PRIMARY KEY (time, symbol_id)
-                )
-            """)
+            await repo.save_candles(batch_candles)
+            candles_inserted += len(batch_candles)
 
-            # 1-day table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS kraken.ohlcv_1d (
-                    time TIMESTAMPTZ NOT NULL,
-                    symbol_id INTEGER NOT NULL,
-                    open NUMERIC,
-                    high NUMERIC,
-                    low NUMERIC,
-                    close NUMERIC,
-                    volume NUMERIC,
-                    PRIMARY KEY (time, symbol_id)
-                )
-            """)
+            if (candles_inserted % 5000) == 0 or candles_inserted == total_candles:
+                print_info(f"    Progress: {candles_inserted:,}/{total_candles:,}...")
 
-            print_info("  Created/verified OHLCV tables (1m, 1h, 1d)")
+        print_success(f"  ✅ Inserted {candles_inserted:,} x 1-minute candles")
+        print_info(f"  📊 Data spans {total_days} days")
+        print_info("  📈 TimeseriesRepository will aggregate on query:")
+        print_info(f"     - 1m: {total_candles:,} candles")
+        print_info(f"     - 1h: {total_candles // 60:,} candles")
+        print_info(f"     - 1d: {total_candles // 1440:,} candles")
 
-            # Generate sample data for BTC/USDC (symbol_id=1, assuming first symbol created)
-            # Generate last 24 hours of 1-minute candles
-            now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-            base_price = Decimal("43000.0")  # BTC price around $43k
+        await repo.close()
 
-            # 1-minute candles (last 2 hours = 120 candles)
-            print_info("  Generating 1-minute candles (last 2 hours)...")
-            for i in range(120):
-                timestamp = now - timedelta(minutes=119-i)
-                # Simulate price movement
-                offset = Decimal(str((i % 20) - 10)) * Decimal("10.0")
-                open_price = base_price + offset
-                high = open_price + Decimal("50.0")
-                low = open_price - Decimal("30.0")
-                close_price = open_price + Decimal(str((i % 5) - 2)) * Decimal("5.0")
-                volume = Decimal("1.5") + Decimal(str(i % 10)) * Decimal("0.1")
+        # Restore original DB_NAME
+        if original_db_name:
+            os.environ['DB_NAME'] = original_db_name
+        else:
+            os.environ.pop('DB_NAME', None)
 
-                await conn.execute("""
-                    INSERT INTO kraken.ohlcv_1m (time, symbol_id, open, high, low, close, volume)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (time, symbol_id) DO NOTHING
-                """, timestamp, 1, open_price, high, low, close_price, volume)
+        print_success("  OHLCV sample data installation complete!")
 
-            # 1-hour candles (last 7 days = 168 candles)
-            print_info("  Generating 1-hour candles (last 7 days)...")
-            for i in range(168):
-                timestamp = now.replace(minute=0) - timedelta(hours=167-i)
-                offset = Decimal(str((i % 50) - 25)) * Decimal("20.0")
-                open_price = base_price + offset
-                high = open_price + Decimal("200.0")
-                low = open_price - Decimal("150.0")
-                close_price = open_price + Decimal(str((i % 10) - 5)) * Decimal("30.0")
-                volume = Decimal("100.0") + Decimal(str(i % 50)) * Decimal("5.0")
-
-                await conn.execute("""
-                    INSERT INTO kraken.ohlcv_1h (time, symbol_id, open, high, low, close, volume)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (time, symbol_id) DO NOTHING
-                """, timestamp, 1, open_price, high, low, close_price, volume)
-
-            # 1-day candles (last 90 days)
-            print_info("  Generating 1-day candles (last 90 days)...")
-            for i in range(90):
-                timestamp = now.replace(hour=0, minute=0) - timedelta(days=89-i)
-                offset = Decimal(str((i % 30) - 15)) * Decimal("100.0")
-                open_price = base_price + offset
-                high = open_price + Decimal("800.0")
-                low = open_price - Decimal("600.0")
-                close_price = open_price + Decimal(str((i % 20) - 10)) * Decimal("50.0")
-                volume = Decimal("5000.0") + Decimal(str(i % 100)) * Decimal("50.0")
-
-                await conn.execute("""
-                    INSERT INTO kraken.ohlcv_1d (time, symbol_id, open, high, low, close, volume)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (time, symbol_id) DO NOTHING
-                """, timestamp, 1, open_price, high, low, close_price, volume)
-
-            print_success("  Generated sample OHLCV data:")
-            print_info("    - 120 x 1-minute candles (last 2 hours)")
-            print_info("    - 168 x 1-hour candles (last 7 days)")
-            print_info("    - 90 x 1-day candles (last 90 days)")
-
-        finally:
-            await conn.close()
+    except ImportError as e:
+        print_error(f"Failed to import fullon_ohlcv: {e}")
+        print_warning("  Make sure fullon_ohlcv is installed")
+        print_warning("  OHLCV examples will return empty results")
+        fullon_logger.warning(f"OHLCV sample data skipped: {e}")
 
     except Exception as e:
         print_error(f"Failed to install OHLCV sample data: {e}")
-        print_warning("OHLCV examples will work but return empty results")
-        # Don't fail the whole installation if OHLCV data fails
-        fullon_logger.warning(f"OHLCV sample data installation failed (non-critical): {e}")
+        import traceback
+        print_error(traceback.format_exc())
+        print_warning("  OHLCV examples may return empty results")
+        fullon_logger.warning(f"OHLCV sample data failed: {e}")
 
 
 async def install_admin_user_internal(db: DatabaseContext) -> int | None:
@@ -535,10 +521,19 @@ async def install_admin_user_internal(db: DatabaseContext) -> int | None:
         print_warning("Admin user already exists")
         return existing_uid
 
-    # Create User ORM model
+    # Create User ORM model with hashed password
+    try:
+        from fullon_master_api.auth.jwt import hash_password
+        hashed_password = hash_password("password")
+        print_info(f"Password hashed successfully (starts with: {hashed_password[:10]}...)")
+    except Exception as e:
+        print_error(f"Failed to hash password: {e}")
+        # Fallback to plaintext (NOT RECOMMENDED for production!)
+        hashed_password = "password"
+
     user = User(
         mail=admin_email,
-        password="password",  # In production this would be hashed
+        password=hashed_password,  # Now properly hashed with bcrypt!
         f2a="---",
         role=RoleEnum.ADMIN,
         name="robert",

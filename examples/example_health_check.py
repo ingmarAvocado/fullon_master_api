@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """
-Example: Health Check API
+Example: Health Check API - Self-Contained Test
+
+THIS EXAMPLE IS FULLY SELF-CONTAINED:
+- Starts its own embedded test server
+- Tests the health check endpoints
+- Stops the server when done
+
+NO EXTERNAL SETUP REQUIRED - just run it!
+
+Usage:
+    python examples/example_health_check.py
 
 Demonstrates:
 - Basic API connectivity
@@ -24,6 +34,18 @@ logger = get_component_logger("fullon.examples.health_check")
 API_BASE_URL = "http://localhost:8000"
 
 
+async def start_test_server():
+    """Start uvicorn server as async background task."""
+    import uvicorn
+    from fullon_master_api.main import app
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
+    server = uvicorn.Server(config)
+    task = asyncio.create_task(server.serve())
+
+    return server, task
+
+
 async def check_health():
     """Check API health status."""
     async with httpx.AsyncClient() as client:
@@ -45,7 +67,6 @@ async def check_health():
             logger.error("Cannot connect to API - is the server running?")
             print("\n❌ Connection Failed")
             print(f"   Make sure the server is running on {API_BASE_URL}")
-            print("   Run: make run")
             return None
 
         except httpx.HTTPStatusError as e:
@@ -78,10 +99,10 @@ async def check_root():
             return None
 
 
-async def main():
-    """Run all health checks."""
-    print("=" * 60)
-    print("Fullon Master API - Health Check Example")
+async def run_examples():
+    """Run all health check examples."""
+    print("\n" + "=" * 60)
+    print("Running Health Check Examples")
     print("=" * 60)
 
     # Check health endpoint
@@ -91,11 +112,53 @@ async def main():
         # Check root endpoint for API info
         await check_root()
         print("\n✅ All checks passed!")
+        return True
     else:
-        print("\n❌ Health check failed - server may not be running")
-        print(f"\nTo start the server:")
-        print("  cd /home/ingmar/code/fullon_master_api")
-        print("  make run")
+        print("\n❌ Health check failed")
+        return False
+
+
+async def main():
+    """
+    Main entry point - self-contained with setup and cleanup.
+    """
+    print("=" * 60)
+    print("Fullon Master API - Health Check Example")
+    print("SELF-CONTAINED: Starts, tests, and stops server automatically")
+    print("=" * 60)
+
+    server = None
+    server_task = None
+    try:
+        # Start embedded test server
+        print("\n1. Starting test server on localhost:8000...")
+        server, server_task = await start_test_server()
+        await asyncio.sleep(2)  # Wait for server to start
+        print("   ✅ Server started")
+
+        # Run examples
+        success = await run_examples()
+
+        if not success:
+            logger.error("Health check examples failed")
+
+    except Exception as e:
+        print(f"\n❌ Example failed: {e}")
+        import traceback
+        traceback.print_exc()
+        logger.error("Example failed", error=str(e))
+
+    finally:
+        # Stop test server
+        if server:
+            print("\n   Stopping test server...")
+            server.should_exit = True
+            if server_task:
+                try:
+                    await asyncio.wait_for(server_task, timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Server shutdown timed out")
+            print("   ✅ Server stopped")
 
     print("=" * 60)
 

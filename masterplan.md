@@ -13,7 +13,7 @@
 
 **Critical Foundation**: All examples created BEFORE implementation to eliminate non-deterministic LLM behavior.
 
-### Examples Created (8 total + test suite)
+### Examples Created (9 total + test suite)
 
 1. **`example_health_check.py`** - Basic API health verification
 2. **`example_start_server.py`** - Server startup and lifecycle
@@ -23,7 +23,8 @@
 6. **`example_orm_routes.py`** - User, bot, order management (ORM API)
 7. **`example_ohlcv_routes.py`** - OHLCV/candlestick data queries
 8. **`example_cache_websocket.py`** - Real-time WebSocket streaming
-9. **`run_all_examples.py`** - Automated test suite
+9. **`example_service_control.py`** - Admin-only service control (NEW - Phase 6)
+10. **`run_all_examples.py`** - Automated test suite
 
 ### Why Examples First?
 
@@ -45,6 +46,7 @@
 | ORM routes | `example_orm_routes.py` | ✅ |
 | OHLCV routes | `example_ohlcv_routes.py` | ✅ |
 | WebSocket | `example_cache_websocket.py` | ✅ |
+| Service control | `example_service_control.py` | ✅ |
 
 **All implementation phases now have concrete examples to match against.**
 

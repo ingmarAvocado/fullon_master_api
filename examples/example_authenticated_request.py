@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """
-Example: Making Authenticated Requests
+Example: Making Authenticated Requests - Self-Contained Test
+
+THIS EXAMPLE IS FULLY SELF-CONTAINED:
+- Creates its own test databases (ORM + OHLCV)
+- Populates demo data (users, bots, exchanges for testing)
+- Starts its own embedded test server
+- Tests authenticated API requests
+- Cleans up databases when done
+
+NO EXTERNAL SETUP REQUIRED - just run it!
+
+Usage:
+    python examples/example_authenticated_request.py
 
 Demonstrates:
 - Getting JWT token via login
@@ -14,18 +26,71 @@ Expected Flow:
 2. Add token to Authorization header
 3. Make authenticated requests to protected endpoints
 4. Handle token expiration
-
-Usage:
-    python examples/example_authenticated_request.py
 """
+# 1. Standard library imports ONLY
 import asyncio
-import httpx
+import os
+import sys
+from pathlib import Path
 from typing import Optional
-from fullon_log import get_component_logger
 
+# 2. Third-party imports (non-fullon packages)
+import httpx
+
+# 3. Generate test database names FIRST (before .env and imports)
+def generate_test_db_name() -> str:
+    """Generate unique test database name (copied from demo_data.py to avoid imports)."""
+    import random
+    import string
+    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+test_db_base = generate_test_db_name()
+test_db_orm = test_db_base
+test_db_ohlcv = f"{test_db_base}_ohlcv"
+
+# 4. Set ALL database environment variables BEFORE loading .env
+os.environ["DB_NAME"] = test_db_orm
+os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+os.environ["DB_TEST_NAME"] = test_db_orm
+
+# 5. NOW load .env file
+project_root = Path(__file__).parent.parent
+try:
+    from dotenv import load_dotenv
+    load_dotenv(project_root / ".env", override=False)
+except ImportError:
+    print("⚠️  python-dotenv not available, make sure .env variables are set manually")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
+
+# 6. Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+# 7. NOW safe to import ALL fullon modules
+from demo_data import (
+    create_dual_test_databases,
+    drop_dual_test_databases,
+    install_demo_data
+)
+from fullon_log import get_component_logger
+from fullon_orm import init_db
+
+# 8. Initialize logger
 logger = get_component_logger("fullon.examples.authenticated_request")
 
 API_BASE_URL = "http://localhost:8000"
+
+
+async def start_test_server():
+    """Start uvicorn server as async background task."""
+    import uvicorn
+    from fullon_master_api.main import app
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
+    server = uvicorn.Server(config)
+    task = asyncio.create_task(server.serve())
+
+    return server, task
 
 
 class APIClient:
@@ -138,29 +203,29 @@ async def example_user_endpoints():
 
     # Login
     print("\n1️⃣  Logging in...")
-    success = await client.login("admin", "admin")
+    success = await client.login("admin@fullon", "password")
 
     if not success:
-        print("   ❌ Login failed - endpoint not yet implemented")
+        print("   ❌ Login failed - auth endpoint not yet fully implemented")
         return
 
     print("   ✅ Logged in successfully")
 
     # Get current user info
     print("\n2️⃣  Getting current user info...")
-    user_data = await client.get("/api/v1/users/me")
+    user_data = await client.get("/api/v1/orm/users/me")
 
     if user_data:
         print("   ✅ User data retrieved:")
-        print(f"      User ID: {user_data.get('user_id')}")
-        print(f"      Username: {user_data.get('username')}")
-        print(f"      Email: {user_data.get('email')}")
+        print(f"      User ID: {user_data.get('uid')}")
+        print(f"      Email: {user_data.get('mail')}")
+        print(f"      Name: {user_data.get('name')}")
     else:
         print("   ❌ Endpoint not yet implemented")
 
     # List all users (admin only)
     print("\n3️⃣  Listing all users (admin)...")
-    users = await client.get("/api/v1/users")
+    users = await client.get("/api/v1/orm/users")
 
     if users:
         print(f"   ✅ Found {len(users)} users")
@@ -178,17 +243,17 @@ async def example_bot_endpoints():
 
     # Login
     print("\n1️⃣  Logging in...")
-    success = await client.login("admin", "admin")
+    success = await client.login("admin@fullon", "password")
 
     if not success:
-        print("   ❌ Login failed - endpoint not yet implemented")
+        print("   ❌ Login failed - auth endpoint not yet fully implemented")
         return
 
     print("   ✅ Logged in successfully")
 
     # List bots
     print("\n2️⃣  Listing user's bots...")
-    bots = await client.get("/api/v1/bots")
+    bots = await client.get("/api/v1/orm/bots")
 
     if bots:
         print(f"   ✅ Found {len(bots)} bots")
@@ -205,7 +270,7 @@ async def example_bot_endpoints():
         "dry_run": True,
     }
 
-    bot = await client.post("/api/v1/bots", new_bot_data)
+    bot = await client.post("/api/v1/orm/bots", new_bot_data)
 
     if bot:
         print("   ✅ Bot created:")
@@ -226,7 +291,7 @@ async def example_error_handling():
     # Attempt request without login
     print("\n1️⃣  Attempting request without authentication...")
     try:
-        await client.get("/api/v1/users/me")
+        await client.get("/api/v1/orm/users/me")
         print("   ❌ Should have raised error")
     except ValueError as e:
         print(f"   ✅ Correctly raised error: {e}")
@@ -241,10 +306,39 @@ async def example_error_handling():
         print("   ❌ Should have rejected invalid credentials")
 
 
-async def main():
-    """Run all authenticated request examples."""
+async def setup_test_environment():
+    """Setup test databases with demo data."""
+    print("\n" + "=" * 60)
+    print("Setting up self-contained test environment")
     print("=" * 60)
-    print("Fullon Master API - Authenticated Requests Example")
+
+    logger.info("Creating test databases", orm_db=test_db_orm, ohlcv_db=test_db_ohlcv)
+
+    print(f"\n1. Creating dual test databases:")
+    print(f"   ORM DB:   {test_db_orm}")
+    print(f"   OHLCV DB: {test_db_ohlcv}")
+
+    orm_db_name, ohlcv_db_name = await create_dual_test_databases(test_db_base)
+    logger.info("Test databases created", orm_db=orm_db_name, ohlcv_db=ohlcv_db_name)
+
+    print("\n2. Initializing database schema...")
+    await init_db()
+    print("   ✅ Schema initialized")
+
+    print("\n3. Installing demo data (users, bots, exchanges)...")
+    success = await install_demo_data()
+    if not success:
+        raise Exception("Failed to install demo data")
+
+    print("\n" + "=" * 60)
+    print("✅ Test environment ready!")
+    print("=" * 60)
+
+
+async def run_examples():
+    """Run all authenticated request examples."""
+    print("\n" + "=" * 60)
+    print("Running Authenticated Request Examples")
     print("=" * 60)
 
     # Example 1: User endpoints
@@ -262,6 +356,64 @@ async def main():
     print("   - Add Authorization header to protected endpoints")
     print("   - Handle 401 errors (expired/invalid tokens)")
     print("   - Use APIClient class for clean token management")
+    print("=" * 60)
+
+
+async def main():
+    """
+    Main entry point - self-contained with setup and cleanup.
+    """
+    print("=" * 60)
+    print("Fullon Master API - Authenticated Requests Example")
+    print("SELF-CONTAINED: Creates, tests, and cleans up databases")
+    print("=" * 60)
+
+    server = None
+    server_task = None
+    try:
+        # Setup test environment
+        await setup_test_environment()
+
+        # Start embedded test server
+        print("\n4. Starting test server on localhost:8000...")
+        server, server_task = await start_test_server()
+        await asyncio.sleep(2)
+        print("   ✅ Server started")
+
+        # Run examples
+        await run_examples()
+
+    except Exception as e:
+        print(f"\n❌ Example failed: {e}")
+        import traceback
+        traceback.print_exc()
+        logger.error("Example failed", error=str(e))
+
+    finally:
+        # Stop test server
+        if server:
+            print("\n   Stopping test server...")
+            server.should_exit = True
+            if server_task:
+                try:
+                    await asyncio.wait_for(server_task, timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Server shutdown timed out")
+            print("   ✅ Server stopped")
+
+        # Always cleanup test databases
+        print("\n" + "=" * 60)
+        print("Cleaning up test databases...")
+        print("=" * 60)
+        try:
+            logger.info("Dropping test databases", orm_db=test_db_orm, ohlcv_db=test_db_ohlcv)
+            await drop_dual_test_databases(test_db_orm, test_db_ohlcv)
+            print("✅ Test databases cleaned up successfully")
+            logger.info("Cleanup complete")
+        except Exception as cleanup_error:
+            print(f"⚠️  Error during cleanup: {cleanup_error}")
+            logger.warning("Cleanup error", error=str(cleanup_error))
+
     print("=" * 60)
 
 
