@@ -266,16 +266,7 @@ async def authenticate_user(username: str, password: str) -> Optional[User]:
                 return None
 
             # Verify password
-            # CRITICAL: Strip password because DB CHAR field pads with spaces!
-            stored_password = user.password.strip() if user.password else ""
-            logger.debug(
-                "Verifying password",
-                username=username,
-                password_len=len(password),
-                stored_hash_len=len(stored_password),
-                stored_hash_prefix=stored_password[:10] if stored_password else "None"
-            )
-            if not verify_password(password, stored_password):
+            if not verify_password(password, user.password):
                 logger.info(
                     "Authentication failed - invalid password",
                     username=username,
