@@ -170,16 +170,16 @@ class ApiKeyAuthExample:
         logger.info("Step 1: Login with JWT")
 
         try:
-            # Login credentials (adjust as needed for your test user)
+            # Login credentials (using demo data credentials)
             login_data = {
-                "username": "test@example.com",  # Adjust for your test user
-                "password": "testpassword"       # Adjust for your test user
+                "username": "admin@fullon",  # Demo user from install_demo_data()
+                "password": "password"       # Demo password (hashed in DB)
             }
 
             response = await self.client.post(
                 f"{self.base_url}/api/v1/auth/login",
-                json=login_data,
-                headers={"Content-Type": "application/json"}
+                data=login_data,  # OAuth2 uses form data, not JSON
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
 
             if response.status_code != 200:
