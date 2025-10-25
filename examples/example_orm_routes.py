@@ -40,12 +40,15 @@ from typing import Optional
 # 2. Third-party imports (non-fullon packages)
 import httpx
 
+
 # 3. Generate test database names FIRST (before .env and imports)
 def generate_test_db_name() -> str:
     """Generate unique test database name (copied from demo_data.py to avoid imports)."""
     import random
     import string
-    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    return "fullon2_test_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
 
 test_db_base = generate_test_db_name()
 test_db_orm = test_db_base
@@ -60,6 +63,7 @@ os.environ["DB_TEST_NAME"] = test_db_orm
 project_root = Path(__file__).parent.parent
 try:
     from dotenv import load_dotenv
+
     load_dotenv(project_root / ".env", override=False)
 except ImportError:
     print("⚠️  python-dotenv not available, make sure .env variables are set manually")
@@ -70,11 +74,7 @@ except Exception as e:
 sys.path.insert(0, str(Path(__file__).parent))
 
 # 7. NOW safe to import ALL fullon modules
-from demo_data import (
-    create_dual_test_databases,
-    drop_dual_test_databases,
-    install_demo_data
-)
+from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
 from fullon_log import get_component_logger
 from fullon_orm import init_db
 
@@ -96,7 +96,9 @@ async def start_test_server():
     return server, task
 
 
-async def login_and_get_token(username: str = "admin@fullon", password: str = "password") -> Optional[str]:
+async def login_and_get_token(
+    username: str = "admin@fullon", password: str = "password"
+) -> Optional[str]:
     """
     Login and get JWT token for authenticated requests.
 
@@ -174,7 +176,7 @@ class ORMAPIClient:
 
     async def list_bots(self) -> Optional[list]:
         """List all bots for current user."""
-        url = f"{self.base_url}/api/v1/orm/bots"
+        url = f"{self.base_url}/api/v1/orm/bots/"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -197,7 +199,7 @@ class ORMAPIClient:
                     "dry_run": true
                 }
         """
-        url = f"{self.base_url}/api/v1/orm/bots"
+        url = f"{self.base_url}/api/v1/orm/bots/"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -224,7 +226,7 @@ class ORMAPIClient:
                     "status": "New"
                 }
         """
-        url = f"{self.base_url}/api/v1/orm/orders"
+        url = f"{self.base_url}/api/v1/orm/orders/"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -423,6 +425,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 
