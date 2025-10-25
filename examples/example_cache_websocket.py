@@ -116,13 +116,13 @@ def generate_demo_token() -> str:
     Returns:
         JWT token string for demo user
     """
-    # Demo user credentials
+    # Demo user credentials (match demo_data.py - admin user)
     user_id = 1
-    username = "demo_user"
-    email = "demo@example.com"
+    username = "admin@fullon"
+    email = "admin@fullon"
 
     token = jwt_handler.generate_token(user_id=user_id, username=username, email=email)
-    logger.info("Generated demo JWT token for WebSocket authentication")
+    logger.info("Generated demo JWT token for WebSocket authentication", username=username)
     return token
 
 

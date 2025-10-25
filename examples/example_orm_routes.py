@@ -174,9 +174,9 @@ class ORMAPIClient:
                 logger.error("List users failed", status=e.response.status_code)
                 return None
 
-    async def list_bots(self) -> Optional[list]:
+    async def list_bots(self, user_id: int) -> Optional[list]:
         """List all bots for current user."""
-        url = f"{self.base_url}/api/v1/orm/bots/by-user"
+        url = f"{self.base_url}/api/v1/orm/bots/by-user?user_id={user_id}"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -184,7 +184,7 @@ class ORMAPIClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as e:
-                logger.error("List bots failed", status=e.response.status_code)
+                logger.error("List bots failed", status=e.response.status_code, user_id=user_id)
                 return None
 
     async def create_bot(self, bot_data: dict) -> Optional[dict]:
@@ -235,7 +235,8 @@ class ORMAPIClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as e:
-                logger.error("Create order failed", status=e.response.status_code)
+                error_detail = e.response.text if e.response else "Unknown error"
+                logger.error("Create order failed", status=e.response.status_code, detail=error_detail[:200])
                 return None
 
 
@@ -286,7 +287,7 @@ async def example_bot_management(token: str):
     print(f"   ✅ User ID: {user_id}")
 
     print("\n2️⃣  Listing user's bots...")
-    bots = await client.list_bots()
+    bots = await client.list_bots(user_id=user_id)
 
     if bots:
         print(f"   ✅ Found {len(bots)} bots")
