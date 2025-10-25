@@ -210,7 +210,7 @@ class ApiKeyAuthExample:
             api_key_data = {
                 "name": "Example API Key",
                 "description": "Created by API key authentication example",
-                "scopes": ["read", "write"]  # Adjust scopes as needed
+                "scopes": "read,write"  # Comma-separated string (fullon_orm format)
             }
 
             response = await self.client.post(
@@ -369,7 +369,7 @@ class ApiKeyAuthExample:
                 "name": "Expired Test Key",
                 "description": "Test key with past expiration",
                 "expires_at": expired_time.isoformat(),
-                "scopes": ["read"]
+                "scopes": "read"  # Comma-separated string (fullon_orm format)
             }
 
             response = await self.client.post(
