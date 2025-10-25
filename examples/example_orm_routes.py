@@ -176,7 +176,7 @@ class ORMAPIClient:
 
     async def list_bots(self) -> Optional[list]:
         """List all bots for current user."""
-        url = f"{self.base_url}/api/v1/orm/bots/"
+        url = f"{self.base_url}/api/v1/orm/bots/by-user"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -196,7 +196,8 @@ class ORMAPIClient:
                 {
                     "name": "My Trading Bot",
                     "active": true,
-                    "dry_run": true
+                    "dry_run": true,
+                    "uid": 1  # User ID (required)
                 }
         """
         url = f"{self.base_url}/api/v1/orm/bots/"
@@ -218,7 +219,7 @@ class ORMAPIClient:
             order_data: Order object data (MUST use 'volume' not 'amount'!)
                 {
                     "bot_id": 1,
-                    "ex_id": 1,
+                    "cat_ex_id": 1,
                     "symbol": "BTC/USD",
                     "side": "buy",
                     "volume": 1.0,
@@ -274,7 +275,17 @@ async def example_bot_management(token: str):
 
     client = ORMAPIClient(token=token)
 
-    print("\n1️⃣  Listing user's bots...")
+    print("\n1️⃣  Getting current user info...")
+    user = await client.get_current_user()
+
+    if not user:
+        print("   ❌ Cannot get user info - aborting bot management")
+        return
+
+    user_id = user.get("uid")
+    print(f"   ✅ User ID: {user_id}")
+
+    print("\n2️⃣  Listing user's bots...")
     bots = await client.list_bots()
 
     if bots:
@@ -284,11 +295,12 @@ async def example_bot_management(token: str):
     else:
         print("   ❌ Endpoint not yet implemented")
 
-    print("\n2️⃣  Creating new bot...")
+    print("\n3️⃣  Creating new bot...")
     new_bot = {
         "name": "Example Trading Bot",
         "active": True,
         "dry_run": True,
+        "uid": user_id,  # Include user ID for bot creation
     }
 
     bot = await client.create_bot(new_bot)
@@ -315,7 +327,7 @@ async def example_order_creation(token: str):
     # ✅ CORRECT - uses 'volume'
     order_data = {
         "bot_id": 1,
-        "ex_id": 1,
+        "cat_ex_id": 1,  # Category exchange ID
         "symbol": "BTC/USD",
         "side": "buy",
         "volume": 1.0,  # ✅ CORRECT field name
