@@ -62,3 +62,5 @@
 2025-10-25 15:30:57.979 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
 2025-10-25 15:30:58.009 | INFO     | demo_data | 241 | Dual test databases dropped: orm=fullon2_test_kce6ie12, ohlcv=fullon2_test_kce6ie12_ohlcv
 2025-10-25 15:30:58.009 | INFO     | __main__ | 327 | Cleanup complete
+2025-10-25 16:11:11.874 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-25 16:11:17.341 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
