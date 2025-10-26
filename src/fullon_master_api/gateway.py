@@ -15,6 +15,8 @@ from .auth.dependencies import get_current_user as master_get_current_user
 from .auth.middleware import JWTMiddleware
 from .config import settings
 from .routers.auth import router as auth_router
+from .routers.services import router as services_router
+from .services.manager import ServiceManager
 
 
 class MasterGateway:
@@ -38,6 +40,8 @@ class MasterGateway:
         """Initialize the Master API Gateway."""
         # CRITICAL: Create component-specific logger
         self.logger = get_component_logger("fullon.master_api")
+        # Initialize ServiceManager for async background tasks
+        self.service_manager = ServiceManager()
         self.app = self._create_app()
         self.logger.info("Master API Gateway initialized")
 
@@ -53,6 +57,9 @@ class MasterGateway:
             version=settings.api_version,
             description=settings.api_description,
         )
+
+        # Set ServiceManager in app state for dependency injection
+        app.state.service_manager = self.service_manager
 
         # Add CORS middleware
         app.add_middleware(
@@ -111,6 +118,9 @@ class MasterGateway:
         # Include auth router
         app.include_router(auth_router, prefix=settings.api_prefix)
 
+        # Include service control router (admin-only)
+        app.include_router(services_router, prefix=settings.api_prefix)
+
         # Mount ORM API routers (NEW - Issue #17)
         self._mount_orm_routers(app)
 
@@ -119,6 +129,14 @@ class MasterGateway:
 
         # Mount Cache API WebSocket routers (Phase 5 - NEW)
         self._mount_cache_routers(app)
+
+        # Add shutdown handler for graceful service stopping
+        @app.on_event("shutdown")
+        async def shutdown_event():
+            """Gracefully stop all services on shutdown."""
+            self.logger.info("Shutting down services...")
+            await self.service_manager.stop_all()
+            self.logger.info("All services stopped")
 
         self.logger.info(
             "FastAPI application created",
