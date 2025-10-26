@@ -1,4 +1,19 @@
 """
+DEPRECATED: This E2E test pattern is deprecated.
+
+Issues:
+- Redundant with tests/e2e/test_run_examples.py
+- Doesn't follow database isolation patterns
+- Tests are covered by the new comprehensive example runner
+
+Use tests/e2e/test_run_examples.py instead, which runs actual
+example scripts that follow proper isolation patterns.
+"""
+import pytest
+
+pytestmark = pytest.mark.skip(reason="Deprecated - use test_run_examples.py")
+
+"""
 End-to-end tests for JWT authentication examples.
 
 Tests validate complete workflows using actual example scripts.
@@ -34,7 +49,7 @@ def test_jwt_login_example():
         [sys.executable, str(example_path), "--username", "admin", "--password", "admin"],
         capture_output=True,
         text=True,
-        timeout=30
+        timeout=30,
     )
 
     # Check that the script ran without syntax errors
@@ -51,7 +66,9 @@ def test_jwt_login_example():
     has_success = "✅ Login Successful!" in output and "✅ Token Verified!" in output
     has_expected_error = "❌ Connection Failed" in output or "❌ Login Failed" in output
 
-    assert has_success or has_expected_error, "Example should either succeed or show expected errors"
+    assert (
+        has_success or has_expected_error
+    ), "Example should either succeed or show expected errors"
 
     # If it shows connection failed, that's expected in test environment
     if "❌ Connection Failed" in output:
@@ -64,4 +81,3 @@ def test_jwt_login_example():
 
     # Check that the script provides helpful information
     assert "💡 Token saved for use in other examples" in output or "⚠️  Note:" in output
-

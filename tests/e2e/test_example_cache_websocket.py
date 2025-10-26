@@ -1,4 +1,20 @@
 """
+DEPRECATED: This E2E test pattern is deprecated.
+
+Issues:
+- Uses production database (no isolation)
+- Hardcoded emails cause UniqueViolationError on re-runs
+- No cleanup
+- Violates project's database isolation principles
+
+Use tests/e2e/test_run_examples.py instead, which runs actual
+example scripts that follow proper isolation patterns.
+"""
+import pytest
+
+pytestmark = pytest.mark.skip(reason="Deprecated - use test_run_examples.py")
+
+"""
 E2E tests for Cache WebSocket example (Phase 5 Issue #34).
 
 Validates:
@@ -210,7 +226,9 @@ class TestExampleAuthentication:
         logger.info("WebSocket properly requires authentication")
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="TODO: Cache API WebSocket auth integration - fullon_cache_api needs auth injection support")
+    @pytest.mark.skip(
+        reason="TODO: Cache API WebSocket auth integration - fullon_cache_api needs auth injection support"
+    )
     async def test_websocket_accepts_valid_token(self, server_process):
         """Test that WebSocket accepts valid JWT tokens.
 
@@ -246,8 +264,13 @@ class TestExampleAuthentication:
             if "connection refused" in error_msg or "111" in error_msg:
                 pytest.skip("Server not running - skipping auth test")
             # Auth errors are not acceptable
-            elif ("401" in error_msg or "403" in error_msg or
-                  "unauthorized" in error_msg or "forbidden" in error_msg or "1008" in error_msg):
+            elif (
+                "401" in error_msg
+                or "403" in error_msg
+                or "unauthorized" in error_msg
+                or "forbidden" in error_msg
+                or "1008" in error_msg
+            ):
                 pytest.fail(f"Authentication should work with valid token: {error_msg}")
             else:
                 # Re-raise unexpected errors
