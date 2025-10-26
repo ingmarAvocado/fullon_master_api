@@ -5,8 +5,7 @@ Uses pydantic-settings for environment-based configuration.
 """
 from typing import List
 
-from pydantic import ConfigDict
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -47,7 +46,19 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False
 
-    model_config = ConfigDict(
+    # Health Monitor Configuration (Issue #43)
+    health_monitor_enabled: bool = True
+    health_check_interval_seconds: int = 300  # 5 minutes
+    health_stale_process_threshold_minutes: int = 10
+    health_auto_restart_enabled: bool = True
+    health_auto_restart_cooldown_seconds: int = 300  # 5 minutes
+    health_auto_restart_max_per_hour: int = 5
+    health_services_to_monitor: List[str] = ["ticker", "ohlcv", "account"]
+    health_enable_process_cache_checks: bool = True
+    health_enable_database_checks: bool = True
+    health_enable_redis_checks: bool = True
+
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
