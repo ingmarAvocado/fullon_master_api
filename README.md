@@ -69,6 +69,53 @@ make daemon-start
 
 The API will be available at `http://localhost:8000`
 
+## Examples
+
+The `examples/` directory contains comprehensive, self-contained test scripts that demonstrate all API functionality. Each example creates its own test databases and cleans them up automatically.
+
+### Running Examples
+
+```bash
+# Run all examples (recommended)
+python examples/run_all_examples.py
+
+# Run individual examples
+python examples/example_health_check.py
+python examples/example_orm_routes.py
+python examples/example_bot_management.py
+python examples/example_trade_analytics.py
+python examples/example_exchange_catalog.py
+python examples/example_strategy_management.py
+python examples/example_order_management.py
+python examples/example_symbol_operations.py
+python examples/example_dashboard_views.py
+```
+
+### Example Categories
+
+| Example | Description | Endpoints Covered |
+|---------|-------------|-------------------|
+| `example_health_check.py` | Server health verification | Health check endpoints |
+| `example_orm_routes.py` | Basic ORM operations | User, bot, order CRUD |
+| `example_bot_management.py` | Complete bot lifecycle | 8 bot management routes |
+| `example_trade_analytics.py` | Trading operations & analytics | 15 trade routes |
+| `example_exchange_catalog.py` | Exchange discovery & config | 9 exchange routes |
+| `example_strategy_management.py` | Strategy configuration | 13 strategy routes |
+| `example_order_management.py` | Order lifecycle management | 6 order routes |
+| `example_symbol_operations.py` | Symbol metadata management | 5 symbol routes |
+| `example_dashboard_views.py` | Aggregated dashboard data | 6 dashboard view routes |
+
+### Examples Architecture
+
+Each example follows the same self-contained pattern:
+
+1. **Database Setup** - Creates unique test databases
+2. **Server Startup** - Starts embedded test server
+3. **API Testing** - Demonstrates specific endpoints
+4. **Cleanup** - Removes test databases
+
+**No external setup required** - just run any example!
+
 ### Running as Daemon
 
 The API can run as a background daemon process:

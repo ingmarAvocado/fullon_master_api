@@ -30,6 +30,15 @@ import example_ohlcv_routes
 import example_cache_websocket
 import example_api_key_auth
 
+# NEW: Comprehensive ORM examples
+import example_bot_management
+import example_trade_analytics
+import example_exchange_catalog
+import example_strategy_management
+import example_order_management
+import example_symbol_operations
+import example_dashboard_views
+
 
 async def run_example(name: str, coro) -> Tuple[str, bool, str]:
     """
@@ -70,9 +79,7 @@ async def run_all(skip_websocket: bool = False):
     results: List[Tuple[str, bool, str]] = []
 
     # Example 1: Health Check (always first - verifies server is running)
-    results.append(
-        await run_example("Health Check", example_health_check.main())
-    )
+    results.append(await run_example("Health Check", example_health_check.main()))
 
     # Example 2: Swagger Documentation
     results.append(
@@ -83,9 +90,7 @@ async def run_all(skip_websocket: bool = False):
 
     # Example 3: JWT Login
     results.append(
-        await run_example(
-            "JWT Login", example_jwt_login.main(username="admin", password="admin")
-        )
+        await run_example("JWT Login", example_jwt_login.main(username="admin", password="admin"))
     )
 
     # Example 4: Authenticated Requests
@@ -94,12 +99,19 @@ async def run_all(skip_websocket: bool = False):
     )
 
     # Example 4.5: API Key Authentication
-    results.append(
-        await run_example("API Key Authentication", example_api_key_auth.main())
-    )
+    results.append(await run_example("API Key Authentication", example_api_key_auth.main()))
 
     # Example 5: ORM Routes
     results.append(await run_example("ORM Routes", example_orm_routes.main()))
+
+    # NEW: Comprehensive ORM Examples
+    results.append(await run_example("Bot Management", example_bot_management.main()))
+    results.append(await run_example("Trade Analytics", example_trade_analytics.main()))
+    results.append(await run_example("Exchange Catalog", example_exchange_catalog.main()))
+    results.append(await run_example("Strategy Management", example_strategy_management.main()))
+    results.append(await run_example("Order Management", example_order_management.main()))
+    results.append(await run_example("Symbol Operations", example_symbol_operations.main()))
+    results.append(await run_example("Dashboard Views", example_dashboard_views.main()))
 
     # Example 6: OHLCV Routes
     results.append(await run_example("OHLCV Routes", example_ohlcv_routes.main()))

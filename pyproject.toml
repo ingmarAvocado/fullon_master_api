@@ -30,6 +30,9 @@ fullon-cache-api = {path = "../fullon_cache_api", develop = true}
 
 # Password hashing
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+fullon-ticker-service = {git = "ssh://git@github.com/ingmarAvocado/fullon_ticker_service.git", rev = "main"}
+fullon-account-service = {git = "ssh://git@github.com/ingmarAvocado/fullon_account_service.git", rev = "main"}
+fullon-ohlcv-service = {git = "ssh://git@github.com/ingmarAvocado/fullon_ohlcv_service.git", rev = "main"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
