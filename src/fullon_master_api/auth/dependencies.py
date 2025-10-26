@@ -38,8 +38,7 @@ class AuthDependencies:
         self.jwt_handler = JWTHandler(secret_key, algorithm)
 
     async def get_current_user(
-        self,
-        credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
+        self, credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
     ) -> User:
         """
         Dependency to get the current authenticated user.
@@ -94,8 +93,7 @@ class AuthDependencies:
             )
 
     async def get_current_active_user(
-        self,
-        current_user: Annotated[User, Depends(get_current_user)]
+        self, current_user: Annotated[User, Depends(get_current_user)]
     ) -> User:
         """
         Dependency to get the current active user.
@@ -131,7 +129,7 @@ async def get_current_user(request: Request) -> User:
     Raises:
         HTTPException: If user is not authenticated
     """
-    user = getattr(request.state, 'user', None)
+    user = getattr(request.state, "user", None)
     if user is None:
         logger.warning("User not authenticated")
         raise HTTPException(
@@ -140,6 +138,63 @@ async def get_current_user(request: Request) -> User:
             headers={"WWW-Authenticate": "Bearer"},
         )
     logger.debug("User retrieved from request state", uid=user.uid, email=user.mail)
+    return user
+
+
+async def get_admin_user(request: Request) -> User:
+    """
+    FastAPI dependency to get authenticated admin user.
+
+    Verifies user email matches ADMIN_MAIL from configuration.
+    This provides admin access control for service management endpoints.
+
+    Admin identification uses email matching (not role-based):
+    - Simple: No database schema changes required
+    - Centralized: Single ADMIN_MAIL environment variable
+    - Flexible: Can change admin by updating .env
+
+    Args:
+        request: FastAPI request object (with user in request.state)
+
+    Returns:
+        User: Authenticated admin user ORM model
+
+    Raises:
+        HTTPException 401: If user is not authenticated
+        HTTPException 403: If user is authenticated but not admin
+
+    Example Usage:
+        @router.post("/services/{service}/start")
+        async def start_service(
+            service: str,
+            admin: User = Depends(get_admin_user)
+        ):
+            # Only admin users reach here
+            ...
+    """
+    from ..config import settings
+
+    # First check if user is authenticated (via middleware)
+    user = getattr(request.state, "user", None)
+    if user is None:
+        logger.warning("Admin endpoint accessed without authentication")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if user email matches admin email
+    if user.mail != settings.admin_mail:
+        logger.warning(
+            "Non-admin user attempted admin access",
+            user_id=user.uid,
+            user_email=user.mail,
+            required_email=settings.admin_mail,
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
+    logger.info("Admin user authenticated", user_id=user.uid, email=user.mail)
     return user
 
 

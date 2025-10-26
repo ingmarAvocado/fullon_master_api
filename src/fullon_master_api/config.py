@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     enable_api_key_auth: bool = True
     api_key_header_name: str = "X-API-Key"
 
+    # Admin Configuration (NEW - Phase 6)
+    admin_mail: str = "admin@fullon"  # Admin user email for service control
+
     # CORS Configuration
     cors_origins: List[str] = ["*"]
     cors_allow_credentials: bool = True
@@ -48,7 +51,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"  # Allow extra env vars (for fullon_orm, fullon_cache, etc.)
+        extra="ignore",  # Allow extra env vars (for fullon_orm, fullon_cache, etc.)
     )
 
 
