@@ -35,6 +35,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -44,8 +45,12 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 
+from fullon_master_api.auth.jwt import JWTHandler
+from fullon_master_api.config import settings
+from fullon_master_api.gateway import MasterGateway
 from fullon_orm.base import Base
 from fullon_orm.database import create_database_url
+from fullon_orm.models import User
 
 # Load environment variables
 load_dotenv()
@@ -370,381 +375,73 @@ class DatabaseTestContext:
 
 
 @pytest_asyncio.fixture
-async def db_context(request):
-    """Create a DatabaseContext-like wrapper for testing with proper isolation.
+async def test_users(db_context, request):
+    """Create test users in database for authentication tests.
 
-    This provides:
-    - Per-test database isolation via savepoints
-    - Automatic rollback after each test
-    - Same interface as fullon_orm.DatabaseContext
-    - Access to all repositories (users, bots, orders, etc.)
-    - Sets DB_NAME environment variable so middleware uses test database
-
-    Usage:
-        async def test_user_creation(db_context):
-            user = User(mail="test@example.com", name="Test", ...)
-            created_user = await db_context.users.add_user(user)
-            assert created_user.uid is not None
-            # Automatically rolled back after test
-    """
-    # Get ORM database name for this module
-    orm_db_name, _ = get_test_db_names(request)
-
-    # Store original DB_NAME for restoration
-    original_db_name = os.getenv("DB_NAME")
-
-    # CRITICAL: Set environment variable so middleware uses test database
-    os.environ["DB_NAME"] = orm_db_name
-
-    # Clear cached database managers so middleware uses test DB
-    from fullon_orm import database
-
-    if hasattr(database, "_db_manager") and database._db_manager is not None:
-        database._db_manager = None
-
-    try:
-        # Get or create engine
-        engine = await get_or_create_engine(orm_db_name)
-
-        # Create session maker
-        async_session_maker = async_sessionmaker(
-            engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-        )
-
-        # Create a session WITHOUT context manager to have full control
-        session = async_session_maker()
-
-        try:
-            # Create test database context wrapper
-            db = DatabaseTestContext(session)
-
-            yield db
-        finally:
-            # Always rollback - this ensures no data persists
-            await session.rollback()
-            await session.close()
-    finally:
-        # Restore original DB_NAME
-        if original_db_name:
-            os.environ["DB_NAME"] = original_db_name
-        else:
-            os.environ.pop("DB_NAME", None)
-
-        # Clear cache again so next test/module gets fresh connection
-        from fullon_orm import database
-
-        if hasattr(database, "_db_manager") and database._db_manager is not None:
-            database._db_manager = None
-
-
-@pytest_asyncio.fixture(scope="module")
-async def dual_test_databases(request) -> AsyncGenerator[dict[str, str], None]:
-    """Create dual test databases with worker isolation for integration tests.
-
-    This creates BOTH ORM and OHLCV databases following the fullon_ohlcv_service pattern.
-    Use this for tests that need both databases available.
+    Creates:
+    - Admin user with email matching settings.admin_mail
+    - Regular user with different email
 
     Returns:
-        Dict with "orm_db" and "ohlcv_db" keys containing database names
-
-    Usage:
-        async def test_with_dual_databases(dual_test_databases):
-            orm_db = dual_test_databases["orm_db"]
-            ohlcv_db = dual_test_databases["ohlcv_db"]
-            # Both databases are ready for use
+        Dict with 'admin' and 'user' keys containing User ORM objects
     """
-    orm_db_name, ohlcv_db_name = get_test_db_names(request)
+    from fullon_master_api.auth.jwt import hash_password
+    from fullon_master_api.config import settings
+    import uuid
 
-    # Create both databases
-    await create_test_database(orm_db_name)
-    await create_test_database(ohlcv_db_name)
+    # Use unique user email to avoid conflicts between tests
+    test_id = str(uuid.uuid4())[:8]
+    user_email = f"user_{test_id}@example.com"
 
-    # Store original DB names for restoration
-    original_orm_db = os.getenv("DB_NAME")
-    original_ohlcv_db = os.getenv("DB_OHLCV_NAME")
-
-    # Set environment variables for this worker
-    os.environ["DB_NAME"] = orm_db_name
-    os.environ["DB_OHLCV_NAME"] = ohlcv_db_name
-
-    # Create engines and initialize schemas
-    await get_or_create_engine(orm_db_name, create_ohlcv_schemas=False)
-    await get_or_create_engine(ohlcv_db_name, create_ohlcv_schemas=True)
-
+    # Try to delete existing admin user first (ignore errors)
     try:
-        yield {"orm_db": orm_db_name, "ohlcv_db": ohlcv_db_name}
-    finally:
-        # Restore environment variables
-        if original_orm_db:
-            os.environ["DB_NAME"] = original_orm_db
-        else:
-            os.environ.pop("DB_NAME", None)
-
-        if original_ohlcv_db:
-            os.environ["DB_OHLCV_NAME"] = original_ohlcv_db
-        else:
-            os.environ.pop("DB_OHLCV_NAME", None)
-
-        # Cleanup databases
-        await drop_test_database(orm_db_name)
-        await drop_test_database(ohlcv_db_name)
-
-
-# ============================================================================
-# EVENT LOOP FIXTURE - Function-Scoped
-# ============================================================================
-
-
-@pytest.fixture(scope="function")
-def event_loop():
-    """Create function-scoped event loop to prevent closure issues.
-
-    This ensures each test gets its own fresh event loop, preventing
-    "Event loop is closed" errors in async tests.
-    """
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-
-    yield loop
-
-    # Proper cleanup - close loop after test with timeout to prevent hanging
-    try:
-        # Cancel all pending tasks
-        pending_tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
-        if pending_tasks:
-            for task in pending_tasks:
-                task.cancel()
-            # Wait for cancellation with timeout to avoid hanging
-            try:
-                future = asyncio.gather(*pending_tasks, return_exceptions=True)
-                loop.run_until_complete(asyncio.wait_for(future, timeout=2.0))
-            except asyncio.TimeoutError:
-                # Force close after timeout - don't wait for hung tasks
-                pass
-
-        # Force close the loop regardless of cleanup success
-        if not loop.is_closed():
-            loop.close()
+        existing_admin = await db_context.users.get_user_by_email(settings.admin_mail)
+        if existing_admin:
+            await db_context.users.delete_user(existing_admin.uid)
     except Exception:
-        # Always try to close the loop on error
-        try:
-            if not loop.is_closed():
-                loop.close()
-        except Exception:
-            pass
+        pass  # Ignore errors if user doesn't exist
 
-
-# ============================================================================
-# CACHE CLEARING - For Perfect Test Isolation
-# ============================================================================
-
-
-@pytest.fixture(autouse=True)
-async def clear_symbol_cache(request):
-    """Clear symbol caches before each test to ensure perfect isolation.
-
-    This is only active for symbol repository tests to avoid unnecessary overhead.
-    """
-    test_file = (
-        request.fspath.basename if hasattr(request.fspath, "basename") else str(request.fspath)
+    # Create admin user with the correct admin email
+    admin_user = User(
+        mail=settings.admin_mail,  # Must match settings.admin_mail for admin access
+        name="Admin",
+        lastname="User",
+        password=hash_password("adminpass123"),
+        f2a="",  # Two-factor auth disabled
+        phone="",
+        id_num="",
+        note=None,
+        manager=None,
+        external_id=None,
+        active=True,
     )
-    if "symbol" in test_file.lower():
-        try:
-            from fullon_orm.cache import cache_manager
+    created_admin = await db_context.users.add_user(admin_user)
 
-            cache_manager.invalidate_symbol_caches()
-            cache_manager.invalidate_exchange_caches()
-        except Exception:
-            # Ignore cache errors to prevent test failures
-            pass
-
-
-# ============================================================================
-# CLEANUP - Session-Level Cleanup
-# ============================================================================
-
-
-@pytest.fixture(scope="session", autouse=True)
-def cleanup(request):
-    """Clean up after all tests.
-
-    This disposes all engines and drops all test databases at the end of the test session.
-    """
-
-    def finalizer():
-        """Properly dispose engines and drop databases."""
-        import asyncio
-
-        async def async_cleanup():
-            try:
-                # Cleanup all created databases and engines
-                for db_name in list(_db_created.keys()):
-                    try:
-                        # Dispose engine if it exists
-                        if db_name in _engine_cache:
-                            engine = _engine_cache[db_name]
-                            await engine.dispose()
-
-                        # Drop the test database
-                        await drop_test_database(db_name)
-
-                    except Exception as e:
-                        print(f"Warning: Failed to cleanup {db_name}: {e}")
-
-                # Clear caches
-                _engine_cache.clear()
-                _db_created.clear()
-
-            except Exception as e:
-                print(f"Error during test cleanup: {e}")
-
-        # Run the async cleanup
-        try:
-            asyncio.run(async_cleanup())
-        except Exception as e:
-            print(f"Failed to run async cleanup: {e}")
-
-    request.addfinalizer(finalizer)
-
-
-@pytest.fixture(scope="session")
-def worker_id(request):
-    """Get worker ID for parallel test execution.
-
-    Returns 'master' for single-threaded execution, or worker ID (e.g., 'gw0', 'gw1')
-    for parallel execution with pytest-xdist.
-    """
-    if hasattr(request.config, "workerinput"):
-        return request.config.workerinput.get("workerid", "master")
-    return "master"
-
-
-# ============================================================================
-# REDIS ISOLATION FIXTURES - For Future Cache API Integration Tests
-# ============================================================================
-
-
-@pytest.fixture(scope="function")
-def redis_db(worker_id, request) -> int:
-    """Allocate completely unique Redis DB per test for maximum isolation.
-
-    Each test gets its own database to ensure complete isolation.
-    Uses process ID and timestamp to guarantee uniqueness.
-
-    Args:
-        worker_id: pytest-xdist worker ID (e.g., "gw0", "gw1", etc.)
-        request: pytest request object to get test info
-
-    Returns:
-        Redis database number (1-16, rotating but unique per test)
-
-    Safety:
-        Never uses Redis DB 0 (reserved for production)
-        Worker isolation: Worker 0 → DBs 1-4, Worker 1 → DBs 5-8,
-                         Worker 2 → DBs 9-12, Worker 3 → DBs 13-16
-    """
-    # Get worker number
-    if worker_id == "master":
-        worker_num = 0
-    else:
-        try:
-            worker_num = int(worker_id[2:])  # Extract number from "gw0", "gw1", etc.
-        except (ValueError, IndexError):
-            worker_num = 0
-
-    # Create unique identifier for this test
-    test_file = os.path.basename(request.node.fspath)
-    test_name = request.node.name
-    timestamp = str(time.time_ns())  # Nanosecond precision
-    process_id = str(os.getpid())
-
-    # Create hash for unique DB selection
-    unique_string = f"{worker_id}_{test_file}_{test_name}_{timestamp}_{process_id}"
-    hash_value = int(hashlib.md5(unique_string.encode()).hexdigest()[:8], 16)
-
-    # Each worker gets a base DB range, but tests cycle through them uniquely
-    base_db = (worker_num * 4) + 1  # Worker 0: 1-4, Worker 1: 5-8, Worker 2: 9-12, Worker 3: 13-16
-    db_offset = hash_value % 4  # 4 DBs per worker for better isolation
-    db_num = base_db + db_offset
-
-    # Ensure we stay within Redis DB limits (1-15, extend to 16 for worker 3)
-    if db_num > 15:
-        db_num = ((db_num - 1) % 15) + 1
-
-    # Set environment variable for this test
-    os.environ["REDIS_DB"] = str(db_num)
-    return db_num
-
-
-@pytest.fixture(scope="module", autouse=True)
-def redis_db_per_module(request):
-    """Set Redis DB for each test file - module scoped with worker isolation.
-
-    This fixture automatically allocates a unique Redis DB per test module (file)
-    with worker-aware isolation to prevent conflicts in parallel execution.
-
-    Args:
-        request: pytest request object
-
-    Returns:
-        Redis database number (1-15)
-
-    Note:
-        This is autouse=True so it applies to all test modules automatically.
-        It sets REDIS_DB environment variable and resets ConnectionPool after module.
-    """
-    # Get worker ID from pytest-xdist if available
-    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
-
-    # Get worker number for proper isolation
-    if worker_id == "master":
-        worker_num = 0
-    else:
-        try:
-            worker_num = int(worker_id[2:])  # Extract number from "gw0", "gw1", etc.
-        except (ValueError, IndexError):
-            worker_num = 0
-
-    # Each worker gets a base DB range to avoid conflicts
-    base_db = (worker_num * 5) + 1  # Worker 0: 1, Worker 1: 6, Worker 2: 11
-
-    # Get test file name and determine DB offset
-    test_file = os.path.basename(request.node.fspath)
-
-    # Map test files to consistent DB offsets within worker range
-    # This ensures same test file always gets same DB per worker
-    test_file_db_map = {
-        # Add your test files here as needed
-        # For now, use hash-based assignment
-    }
-
-    # Get DB offset from map, or use hash-based assignment for unknown files
-    if test_file in test_file_db_map:
-        db_offset = test_file_db_map[test_file]
-    else:
-        # Hash the filename to get a consistent offset within worker range
-        db_offset = hash(test_file) % 5
-
-    # Calculate final DB number within Redis limits (1-15)
-    db_num = ((base_db + db_offset - 1) % 15) + 1
-
-    os.environ["REDIS_DB"] = str(db_num)
-    print(
-        f"\n[REDIS DB SELECT] Worker {worker_id} using Redis DB {db_num} for test file {test_file}"
-    )
-
-    yield db_num
-
-    # Reset ConnectionPool after module
+    # Try to delete existing regular user first (ignore errors)
     try:
-        from fullon_cache.connection import ConnectionPool
-
-        ConnectionPool.reset()
+        existing_user = await db_context.users.get_user_by_email(user_email)
+        if existing_user:
+            await db_context.users.delete_user(existing_user.uid)
     except Exception:
-        # fullon_cache might not be available yet, that's OK
-        pass
+        pass  # Ignore errors if user doesn't exist
+
+    # Create regular user
+    regular_user = User(
+        mail=user_email,
+        name="Regular",
+        lastname="User",
+        password=hash_password("userpass123"),
+        f2a="",  # Two-factor auth disabled
+        phone="",
+        id_num="",
+        note=None,
+        manager=None,
+        external_id=None,
+        active=True,
+    )
+    created_user = await db_context.users.add_user(regular_user)
+
+    return {"admin": created_admin, "user": created_user}
 
 
 @pytest_asyncio.fixture
@@ -835,6 +532,99 @@ async def clean_redis(redis_db) -> AsyncGenerator[None, None]:
 
 
 @pytest.fixture(scope="function")
+def redis_db(worker_id, request) -> int:
+    """Allocate a unique Redis database per test with worker isolation.
+
+    This fixture provides database-per-test isolation for Redis operations.
+    Worker 0 gets DBs 1-4, Worker 1 gets DBs 5-8, etc.
+
+    Returns:
+        Redis database number (1-15, never 0 for production safety)
+    """
+    import hashlib
+    import time
+    import os
+
+    # Get worker number
+    if worker_id == "master":
+        worker_num = 0
+    else:
+        try:
+            worker_num = int(worker_id[2:])
+        except (ValueError, IndexError):
+            worker_num = 0
+
+    # Base DB for this worker (4 DBs per worker)
+    base_db = (worker_num * 4) + 1
+
+    # Get test info for hash-based selection
+    test_file = os.path.basename(request.node.fspath)
+    test_name = request.node.name
+    timestamp_ns = time.time_ns()
+    process_id = os.getpid()
+
+    # Create unique identifier for this test
+    unique_string = f"{worker_id}_{test_file}_{test_name}_{timestamp_ns}_{process_id}"
+
+    # Hash to get consistent but unique DB selection
+    hash_value = int(hashlib.md5(unique_string.encode()).hexdigest()[:8], 16)
+    db_offset = hash_value % 4
+    db_num = base_db + db_offset
+
+    # Ensure we don't exceed DB 15
+    if db_num > 15:
+        db_num = ((db_num - 1) % 15) + 1
+
+    # Set environment variable for fullon_cache
+    os.environ["REDIS_DB"] = str(db_num)
+
+    return db_num
+
+
+@pytest.fixture(scope="module", autouse=True)
+def redis_db_per_module(request, worker_id):
+    """Allocate a Redis database per test module with worker isolation.
+
+    This fixture automatically sets REDIS_DB for all tests in a module.
+    Worker 0 gets DBs 1-5, Worker 1 gets DBs 6-10, etc.
+    """
+    import hashlib
+    import os
+
+    # Get worker number
+    if worker_id == "master":
+        worker_num = 0
+    else:
+        try:
+            worker_num = int(worker_id[2:])
+        except (ValueError, IndexError):
+            worker_num = 0
+
+    # Base DB for this worker (5 DBs per worker for module scope)
+    base_db = (worker_num * 5) + 1
+
+    # Get module info
+    module_name = os.path.basename(request.node.fspath)
+
+    # Hash module name for consistent DB selection
+    hash_value = int(hashlib.md5(module_name.encode()).hexdigest()[:8], 16)
+    db_offset = hash_value % 5
+    db_num = base_db + db_offset
+
+    # Ensure we don't exceed DB 15
+    if db_num > 15:
+        db_num = ((db_num - 1) % 15) + 1
+
+    # Set environment variable
+    os.environ["REDIS_DB"] = str(db_num)
+
+    # Print allocation for debugging
+    print(
+        f"[REDIS DB SELECT] Worker {worker_id} using Redis DB {db_num} for test file {module_name}"
+    )
+
+
+@pytest.fixture(scope="function")
 def test_isolation_prefix(worker_id, request) -> str:
     """Generate ultra-unique prefix for test data to prevent cross-test contamination.
 
@@ -886,3 +676,132 @@ def test_isolation_prefix(worker_id, request) -> str:
     prefix = f"w{worker_num}_{prefix_hash}"
 
     return prefix
+
+
+# ============================================================================
+# AUTHENTICATION TEST FIXTURES - For Integration Tests
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def db_context(request):
+    """Create a DatabaseContext-like wrapper for testing with proper isolation.
+
+    This provides:
+    - Per-test database isolation via savepoints
+    - Automatic rollback after each test
+    - Same interface as fullon_orm.DatabaseContext
+    - Access to all repositories (users, bots, orders, etc.)
+    - Sets DB_NAME environment variable so middleware uses test database
+
+    Usage:
+        async def test_user_creation(db_context):
+            user = User(mail="test@example.com", name="Test", ...)
+            created_user = await db_context.users.add_user(user)
+            assert created_user.uid is not None
+            # Automatically rolled back after test
+    """
+    # Get ORM database name for this module
+    orm_db_name, _ = get_test_db_names(request)
+
+    # Store original DB_NAME for restoration
+    original_db_name = os.getenv("DB_NAME")
+
+    # CRITICAL: Set environment variable so middleware uses test database
+    os.environ["DB_NAME"] = orm_db_name
+
+    # Clear cached database managers so middleware uses test DB
+    from fullon_orm import database
+
+    if hasattr(database, "_db_manager") and database._db_manager is not None:
+        database._db_manager = None
+
+    try:
+        # Get or create engine
+        engine = await get_or_create_engine(orm_db_name)
+
+        # Create session maker
+        async_session_maker = async_sessionmaker(
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+
+        # Create a session WITHOUT context manager to have full control
+        session = async_session_maker()
+
+        try:
+            # Begin transaction explicitly for proper rollback
+            await session.begin()
+
+            # Create test database context wrapper
+            db = DatabaseTestContext(session)
+
+            yield db
+        finally:
+            # Always rollback - this ensures no data persists
+            await session.rollback()
+            await session.close()
+    finally:
+        # Restore original DB_NAME
+        if original_db_name:
+            os.environ["DB_NAME"] = original_db_name
+        else:
+            os.environ.pop("DB_NAME", None)
+
+        # Clear cache again so next test/module gets fresh connection
+        from fullon_orm import database
+
+        if hasattr(database, "_db_manager") and database._db_manager is not None:
+            database._db_manager = None
+
+
+@pytest.fixture(scope="function")
+def jwt_handler():
+    """Create JWT handler for token generation in tests."""
+    return JWTHandler(settings.jwt_secret_key, settings.jwt_algorithm)
+
+
+@pytest.fixture(scope="function")
+def admin_token(test_users, jwt_handler):
+    """Generate JWT token for admin user."""
+    admin_user = test_users["admin"]
+    return jwt_handler.generate_token(
+        user_id=admin_user.uid,
+        username=admin_user.mail,  # Use email as username
+        email=admin_user.mail,
+    )
+
+
+@pytest.fixture(scope="function")
+def user_token(test_users, jwt_handler):
+    """Generate JWT token for regular user."""
+    regular_user = test_users["user"]
+    return jwt_handler.generate_token(
+        user_id=regular_user.uid,
+        username=regular_user.mail,  # Use email as username
+        email=regular_user.mail,
+    )
+
+
+@pytest.fixture(scope="function")
+def test_app():
+    """Create FastAPI test application instance."""
+    gateway = MasterGateway()
+    return gateway.get_app()
+
+
+@pytest.fixture(scope="function")
+def admin_client(test_app, admin_token):
+    """Create TestClient with admin authentication."""
+    client = TestClient(test_app)
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    return client
+
+
+@pytest.fixture(scope="function")
+def user_client(test_app, user_token):
+    """Create TestClient with regular user authentication."""
+    client = TestClient(test_app)
+    client.headers.update({"Authorization": f"Bearer {user_token}"})
+    return client

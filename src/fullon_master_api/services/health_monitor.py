@@ -115,7 +115,14 @@ class HealthMonitor:
         self.total_recovery_actions = 0
         self.uptime_start = datetime.now()
 
-        self.logger.info("HealthMonitor initialized", config=self._config_summary())
+        self.logger.info(
+            "HealthMonitor initialized",
+            check_interval_seconds=self.config.check_interval_seconds,
+            auto_restart_enabled=self.config.auto_restart.enabled,
+            cooldown_seconds=self.config.auto_restart.cooldown_seconds,
+            max_restarts_per_hour=self.config.auto_restart.max_restarts_per_hour,
+            services_to_monitor=self.config.auto_restart.services_to_monitor,
+        )
 
     def _config_summary(self) -> Dict[str, Any]:
         """Get configuration summary for logging."""
@@ -242,7 +249,7 @@ class HealthMonitor:
 
     async def _check_service_health(self, result: HealthCheckResult):
         """Check service health and perform auto-restart if configured."""
-        service_status = await self.service_manager.get_all_status()
+        service_status = self.service_manager.get_all_status()
 
         for service_name, status in service_status["services"].items():
             if service_name not in self.config.auto_restart.services_to_monitor:

@@ -31,11 +31,15 @@ class TestRedisIsolationExample:
         - Uses worker-aware allocation for parallel tests
         - Worker 0: DBs 1-4, Worker 1: DBs 5-8, etc.
         """
+        # Skip if Redis fixtures are not available
+        if redis_db is None:
+            pytest.skip("Redis not available for testing")
+
         # Verify DB number is allocated
         assert 1 <= redis_db <= 15, f"Redis DB {redis_db} should be between 1-15"
 
         # Verify environment variable is set
-        assert os.getenv('REDIS_DB') == str(redis_db)
+        assert os.getenv("REDIS_DB") == str(redis_db)
 
         # Verify we're not using production DB 0
         assert redis_db != 0, "Never use Redis DB 0 (production)"
@@ -49,13 +53,13 @@ class TestRedisIsolationExample:
         - Prevents key collisions even in same Redis DB
         """
         # Verify prefix format
-        assert test_isolation_prefix.startswith('w')
-        assert '_' in test_isolation_prefix
+        assert test_isolation_prefix.startswith("w")
+        assert "_" in test_isolation_prefix
 
         # Verify prefix length (worker digit + underscore + 16-char hash)
-        parts = test_isolation_prefix.split('_', 1)
+        parts = test_isolation_prefix.split("_", 1)
         assert len(parts) == 2
-        assert parts[0].startswith('w')
+        assert parts[0].startswith("w")
         assert len(parts[1]) == 16  # SHA256 hash truncated to 16 chars
 
     @pytest.mark.asyncio
@@ -73,6 +77,10 @@ class TestRedisIsolationExample:
             If fullon_cache is not installed, this fixture passes silently.
             This allows tests to run even before fullon_cache integration.
         """
+        # Skip if Redis fixtures are not available
+        if redis_db is None:
+            pytest.skip("Redis not available for testing")
+
         # This test demonstrates the fixture is available
         # When fullon_cache is installed, the database will be completely clean
         assert redis_db is not None
@@ -99,6 +107,10 @@ class TestRedisIsolationExample:
                 # Test cache operations
                 # Automatically cleaned up after test
         """
+        # Skip if Redis fixtures are not available
+        if redis_db is None:
+            pytest.skip("Redis not available for testing")
+
         # Verify both PostgreSQL and Redis isolation are available
         assert db_context is not None, "db_context should provide ORM database access"
         assert redis_db is not None, "redis_db should provide Redis DB number"
@@ -119,6 +131,10 @@ class TestRedisWorkerIsolation:
         - Worker 2 (gw1): DBs 9-12
         - Worker 3 (gw2): DBs 13-16 (wraps to 1-15)
         """
+        # Skip if Redis fixtures are not available
+        if redis_db is None:
+            pytest.skip("Redis not available for testing")
+
         # Extract worker number
         if worker_id == "master":
             worker_num = 0
@@ -131,8 +147,9 @@ class TestRedisWorkerIsolation:
 
         # Verify DB is within worker's range (with wrapping for high workers)
         if expected_max <= 15:
-            assert expected_min <= redis_db <= expected_max, \
-                f"Worker {worker_id} should use DBs {expected_min}-{expected_max}, got {redis_db}"
+            assert (
+                expected_min <= redis_db <= expected_max
+            ), f"Worker {worker_id} should use DBs {expected_min}-{expected_max}, got {redis_db}"
 
 
 # Module-level documentation for future developers

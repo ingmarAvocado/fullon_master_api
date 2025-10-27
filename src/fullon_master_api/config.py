@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     health_enable_database_checks: bool = True
     health_enable_redis_checks: bool = True
 
+    # Service Manager Configuration (Issue #44)
+    service_auto_start_enabled: bool = True
+    services_to_auto_start: List[str] = [
+        "ticker",
+        "ohlcv",
+        "account",
+    ]  # Services to start on app startup
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

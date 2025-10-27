@@ -10,6 +10,18 @@ import pytest_asyncio
 class TestServiceControlEndpoints:
     """Test service control endpoints."""
 
+    @pytest.fixture(autouse=True, scope="function")
+    async def cleanup_services(self, test_app):
+        """Clean up any running services after each test."""
+        yield
+        # Stop all services after test
+        try:
+            # Get service manager from app state
+            service_manager = test_app.state.service_manager
+            await service_manager.stop_all()
+        except Exception:
+            pass  # Ignore cleanup errors
+
     @pytest_asyncio.fixture(scope="function", autouse=False)
     async def test_admin_user(self, db_context):
         """Create or get admin user for testing."""
@@ -117,6 +129,10 @@ class TestServiceControlEndpoints:
         assert data["service"] == service_name
         assert data["status"] == "started"
 
+        # Clean up: stop the service we started
+        stop_response = await admin_client.post(f"/api/v1/services/{service_name}/stop")
+        assert stop_response.status_code == 200
+
     @pytest.mark.asyncio
     async def test_stop_service_admin_success(self, admin_client):
         """Test admin can stop a service."""
@@ -170,9 +186,9 @@ class TestServiceControlEndpoints:
         assert "services" in data
 
         services = data["services"]
-        assert len(services) == 3
+        assert len(services) == 4
 
-        for service_name in ["ticker", "ohlcv", "account"]:
+        for service_name in ["ticker", "ohlcv", "account", "health_monitor"]:
             assert service_name in services
             service_data = services[service_name]
             assert service_data["status"] in ["running", "stopped"]
@@ -241,6 +257,10 @@ class TestServiceControlEndpoints:
 
         assert second_start_response.status_code == 400
         assert "is already running" in second_start_response.json()["detail"]
+
+        # Clean up: stop the service
+        stop_response = await admin_client.post(f"/api/v1/services/{service_name}/stop")
+        assert stop_response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_stop_service_not_running(self, admin_client):

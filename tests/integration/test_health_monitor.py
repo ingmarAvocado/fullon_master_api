@@ -18,6 +18,24 @@ from fullon_master_api.services.health_monitor import (
 class TestHealthMonitor:
     """Test HealthMonitor service functionality."""
 
+    @pytest.fixture(autouse=True)
+    def mock_database_operations(self):
+        """Mock database operations to prevent real database connections in tests."""
+        from unittest.mock import MagicMock
+
+        with patch("fullon_orm.database.get_db_manager") as mock_get_db_manager:
+            mock_db_manager = MagicMock()
+            mock_session = AsyncMock()
+
+            # Create a proper async context manager
+            mock_session_cm = MagicMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_db_manager.get_session.return_value = mock_session_cm
+
+            mock_get_db_manager.return_value = mock_db_manager
+            yield
+
     @pytest.fixture
     def health_config(self):
         """Create test HealthMonitor configuration."""
@@ -38,13 +56,18 @@ class TestHealthMonitor:
     @pytest.fixture
     def mock_service_manager(self):
         """Create mock ServiceManager."""
+        from unittest.mock import Mock
+
         manager = AsyncMock()
-        manager.get_all_status.return_value = {
-            "services": {
-                "ticker": {"service": "ticker", "status": "stopped", "is_running": False},
-                "ohlcv": {"service": "ohlcv", "status": "running", "is_running": True},
+        # get_all_status is synchronous in the real ServiceManager
+        manager.get_all_status = Mock(
+            return_value={
+                "services": {
+                    "ticker": {"service": "ticker", "status": "stopped", "is_running": False},
+                    "ohlcv": {"service": "ohlcv", "status": "running", "is_running": True},
+                }
             }
-        }
+        )
         manager.restart_service = AsyncMock(
             return_value={"service": "ticker", "status": "restarted"}
         )
@@ -181,10 +204,29 @@ class TestHealthMonitor:
     @pytest.mark.asyncio
     async def test_database_health_check(self, health_monitor):
         """Test database connectivity health check."""
-        result = await health_monitor.perform_health_check_and_recovery()
+        # Mock the database manager to avoid real database connections
+        with patch("fullon_orm.database.get_db_manager") as mock_get_db_manager:
+            from unittest.mock import MagicMock
 
-        # Database check should be performed (HealthCheckResult is a dataclass)
-        assert "database" in result.checks_performed
+            mock_db_manager = MagicMock()
+            mock_session = AsyncMock()
+
+            # Create a proper async context manager
+            mock_session_cm = MagicMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_db_manager.get_session.return_value = mock_session_cm
+
+            mock_get_db_manager.return_value = mock_db_manager
+
+            result = await health_monitor.perform_health_check_and_recovery()
+
+            # Database check should be performed (HealthCheckResult is a dataclass)
+            assert "database" in result.checks_performed
+
+            # Verify database manager was called
+            mock_get_db_manager.assert_called_once()
+            mock_db_manager.get_session.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_action_history_tracking(self, health_monitor):

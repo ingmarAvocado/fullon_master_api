@@ -5,7 +5,7 @@ Manages lifecycle of Fullon service daemons as async background tasks.
 """
 import asyncio
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from fullon_log import get_component_logger
 
@@ -18,6 +18,7 @@ class ServiceName(str, Enum):
     TICKER = "ticker"
     OHLCV = "ohlcv"
     ACCOUNT = "account"
+    HEALTH_MONITOR = "health_monitor"
 
 
 class ServiceManager:
@@ -57,10 +58,32 @@ class ServiceManager:
             }
             logger.warning("Using mock daemons - service libraries not available")
 
+        # Initialize HealthMonitor (always available)
+        from .health_monitor import HealthMonitor, HealthMonitorConfig, AutoRestartConfig
+        from ..config import settings
+
+        health_config = HealthMonitorConfig(
+            check_interval_seconds=settings.health_check_interval_seconds,
+            stale_process_threshold_minutes=settings.health_stale_process_threshold_minutes,
+            auto_restart=AutoRestartConfig(
+                enabled=settings.health_auto_restart_enabled,
+                cooldown_seconds=settings.health_auto_restart_cooldown_seconds,
+                max_restarts_per_hour=settings.health_auto_restart_max_per_hour,
+                services_to_monitor=settings.health_services_to_monitor,
+            ),
+            enable_process_cache_checks=settings.health_enable_process_cache_checks,
+            enable_database_checks=settings.health_enable_database_checks,
+            enable_redis_checks=settings.health_enable_redis_checks,
+        )
+
+        self.health_monitor = HealthMonitor(self, health_config)
+        self.daemons[ServiceName.HEALTH_MONITOR] = self.health_monitor
+
         self.tasks: Dict[ServiceName, Optional[asyncio.Task]] = {
             ServiceName.TICKER: None,
             ServiceName.OHLCV: None,
             ServiceName.ACCOUNT: None,
+            ServiceName.HEALTH_MONITOR: None,
         }
 
         logger.info("ServiceManager initialized")
@@ -197,6 +220,18 @@ class ServiceManager:
                 except Exception as e:
                     logger.error(f"Error stopping {service_name}", error=str(e))
 
+    def get_health_status(self) -> Dict[str, Any]:
+        """
+        Get comprehensive health status from HealthMonitor.
+
+        Returns:
+            dict: Health status information
+        """
+        if hasattr(self, "health_monitor"):
+            return self.health_monitor.get_health_status()
+        else:
+            return {"status": "unknown", "error": "HealthMonitor not initialized"}
+
 
 class MockDaemon:
     """Mock daemon for testing when service libraries are not available."""
@@ -204,14 +239,16 @@ class MockDaemon:
     def __init__(self, name: str):
         self.name = name
         self.running = False
+        self._stop_event = asyncio.Event()
 
     async def start(self):
-        """Mock start method - runs indefinitely."""
+        """Mock start method - runs until stopped."""
         self.running = True
+        self._stop_event.clear()
         logger.info(f"Mock {self.name} daemon started")
         try:
-            while True:
-                await asyncio.sleep(1)  # Keep running
+            while not self._stop_event.is_set():
+                await asyncio.sleep(0.1)  # Short sleep for test responsiveness
         except asyncio.CancelledError:
             self.running = False
             logger.info(f"Mock {self.name} daemon stopped")
@@ -219,6 +256,7 @@ class MockDaemon:
 
     async def stop(self):
         """Mock stop method."""
+        self._stop_event.set()
         self.running = False
         logger.info(f"Mock {self.name} daemon stop requested")
 

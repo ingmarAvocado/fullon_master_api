@@ -18,8 +18,17 @@ class TestServiceManager:
         # ServiceManager automatically falls back to mock daemons when imports fail
         manager = ServiceManager()
 
-        assert len(manager.daemons) == 3
-        assert all(isinstance(daemon, MockDaemon) for daemon in manager.daemons.values())
+        # Now includes 4 services: ticker, ohlcv, account, health_monitor
+        assert len(manager.daemons) == 4
+
+        # Check that ticker, ohlcv, account are MockDaemons
+        from fullon_master_api.services.health_monitor import HealthMonitor
+        for service_name in [ServiceName.TICKER, ServiceName.OHLCV, ServiceName.ACCOUNT]:
+            assert isinstance(manager.daemons[service_name], MockDaemon)
+
+        # health_monitor is a HealthMonitor instance
+        assert isinstance(manager.daemons[ServiceName.HEALTH_MONITOR], HealthMonitor)
+
         assert all(task is None for task in manager.tasks.values())
 
     def test_service_names_enum(self):
@@ -27,6 +36,7 @@ class TestServiceManager:
         assert ServiceName.TICKER == "ticker"
         assert ServiceName.OHLCV == "ohlcv"
         assert ServiceName.ACCOUNT == "account"
+        assert ServiceName.HEALTH_MONITOR == "health_monitor"
 
     @pytest.mark.asyncio
     async def test_start_service_success(self):
@@ -135,7 +145,8 @@ class TestServiceManager:
         status = manager.get_all_status()
 
         assert "services" in status
-        assert len(status["services"]) == 3
+        # Now includes 4 services: ticker, ohlcv, account, health_monitor
+        assert len(status["services"]) == 4
 
         for service_name in ServiceName:
             assert service_name in status["services"]

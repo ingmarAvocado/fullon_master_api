@@ -45,25 +45,23 @@ async def test_login_endpoint():
     # Create mock user
     mock_user = MagicMock()
     mock_user.uid = 123
-    mock_user.username = "testuser"
-    mock_user.email = "test@example.com"
+    mock_user.mail = "test@example.com"
     mock_user.password = hash_password("correctpassword")
 
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    from httpx import ASGITransport
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         # Test successful login
         with patch(
-            'fullon_master_api.routers.auth.authenticate_user',
-            new_callable=AsyncMock
+            "fullon_master_api.routers.auth.authenticate_user", new_callable=AsyncMock
         ) as mock_auth:
             mock_auth.return_value = mock_user
 
             response = await client.post(
                 "/api/v1/auth/login",
-                data={
-                    "username": "testuser",
-                    "password": "correctpassword"
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
+                data={"username": "testuser", "password": "correctpassword"},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
             assert response.status_code == 200
@@ -76,25 +74,20 @@ async def test_login_endpoint():
 
         # Test failed login
         with patch(
-            'fullon_master_api.routers.auth.authenticate_user',
-            new_callable=AsyncMock
+            "fullon_master_api.routers.auth.authenticate_user", new_callable=AsyncMock
         ) as mock_auth:
             mock_auth.return_value = None
 
             response = await client.post(
                 "/api/v1/auth/login",
-                data={
-                    "username": "testuser",
-                    "password": "wrongpassword"
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
+                data={"username": "testuser", "password": "wrongpassword"},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
             assert response.status_code == 401
             data = response.json()
             assert "detail" in data
             assert data["detail"] == "Invalid credentials"
-
 
 
 @pytest.mark.asyncio
@@ -126,34 +119,32 @@ async def test_verify_endpoint():
     # Create mock user
     mock_user = MagicMock()
     mock_user.uid = 123
-    mock_user.username = "testuser"
-    mock_user.email = "test@example.com"
+    mock_user.mail = "test@example.com"
 
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    from httpx import ASGITransport
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         # Test successful verification
         valid_token = jwt_handler.generate_token(
-            user_id=mock_user.uid,
-            username=mock_user.username,
-            email=mock_user.email
+            user_id=mock_user.uid, username="testuser", email=mock_user.mail
         )
 
         response = await client.get(
-            "/api/v1/auth/verify",
-            headers={"Authorization": f"Bearer {valid_token}"}
+            "/api/v1/auth/verify", headers={"Authorization": f"Bearer {valid_token}"}
         )
 
         assert response.status_code == 200
         data = response.json()
 
         assert data["user_id"] == mock_user.uid
-        assert data["username"] == mock_user.username
-        assert data["email"] == mock_user.email
+        assert data["username"] == "testuser"
+        assert data["email"] == mock_user.mail
         assert data["is_active"] is True
 
         # Test invalid token
         response = await client.get(
-            "/api/v1/auth/verify",
-            headers={"Authorization": "Bearer invalid_token"}
+            "/api/v1/auth/verify", headers={"Authorization": "Bearer invalid_token"}
         )
 
         assert response.status_code == 401
@@ -166,4 +157,3 @@ async def test_verify_endpoint():
         assert response.status_code == 403  # HTTPBearer returns 403 for missing credentials
         data = response.json()
         assert "detail" in data
-

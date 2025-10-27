@@ -14,15 +14,29 @@ Usage:
 
 Demonstrates:
 - Basic API connectivity
-- Health endpoint (no authentication required)
-- Service status verification
+- Enhanced health endpoint with ProcessCache monitoring
+- Self-healing capabilities with auto-restart
+- Service status monitoring
+- Process health tracking
 - Programmatic API access using httpx
 
-Expected Output:
+Expected Output (Enhanced):
 {
-    "status": "healthy",
+    "status": "healthy|degraded|recovering",
     "version": "1.0.0",
-    "service": "fullon_master_api"
+    "service": "fullon_master_api",
+    "services": {
+        "ticker": {"service": "ticker", "status": "running|stopped", "is_running": true|false},
+        "ohlcv": {"service": "ohlcv", "status": "running|stopped", "is_running": true|false},
+        "account": {"service": "account", "status": "running|stopped", "is_running": true|false}
+    },
+    "processes": {
+        "system_health": {...},
+        "active_count": 0,
+        "active_processes": [...]
+    },
+    "issues": [...],
+    "auto_restarts": 0
 }
 """
 import asyncio
@@ -60,6 +74,28 @@ async def check_health():
             print(f"   Status: {health_data['status']}")
             print(f"   Version: {health_data['version']}")
             print(f"   Service: {health_data['service']}")
+
+            # Show enhanced health features
+            if "services" in health_data:
+                print(f"   Services monitored: {len(health_data['services'])}")
+                for service_name, service_info in health_data["services"].items():
+                    status = service_info.get("status", "unknown")
+                    running = "✅" if service_info.get("is_running", False) else "❌"
+                    print(f"     {service_name}: {status} {running}")
+
+            if "processes" in health_data:
+                active_count = health_data["processes"].get("active_count", 0)
+                print(f"   Active processes: {active_count}")
+
+            if "auto_restarts" in health_data and health_data["auto_restarts"] > 0:
+                print(f"   Auto-restarts performed: {health_data['auto_restarts']}")
+
+            if "issues" in health_data and health_data["issues"]:
+                print(f"   Issues detected: {len(health_data['issues'])}")
+                for issue in health_data["issues"][:3]:  # Show first 3 issues
+                    print(f"     - {issue}")
+                if len(health_data["issues"]) > 3:
+                    print(f"     ... and {len(health_data['issues']) - 3} more")
 
             return health_data
 
@@ -145,6 +181,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 
