@@ -60,6 +60,35 @@ async def start_test_server():
     return server, task
 
 
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
+
+
 async def check_health():
     """Check API health status."""
     async with httpx.AsyncClient() as client:
@@ -169,7 +198,11 @@ async def main():
         # Start embedded test server
         print("\n1. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)  # Wait for server to start
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server("http://localhost:8000", timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run examples

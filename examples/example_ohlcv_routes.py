@@ -35,58 +35,54 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-# 2. Third-party imports (non-fullon packages)
-import httpx
-
-# 3. Generate test database names FIRST (before .env and imports)
-def generate_test_db_name() -> str:
-    """Generate unique test database name (copied from demo_data.py to avoid imports)."""
-    import random
-    import string
-    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-
-test_db_base = generate_test_db_name()
-test_db_orm = test_db_base
-test_db_ohlcv = f"{test_db_base}_ohlcv"
-
-# 4. Set ALL database environment variables BEFORE loading .env (so they won't be overridden)
-os.environ["DB_NAME"] = test_db_orm
-os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
-# CRITICAL: Also override DB_TEST_NAME to prevent test mode from using wrong database
-os.environ["DB_TEST_NAME"] = test_db_orm
-
-# 5. NOW load .env file (won't override existing env vars)
+# 2. Load .env file FIRST before ANY other imports (critical for env var caching)
 project_root = Path(__file__).parent.parent
 try:
     from dotenv import load_dotenv
-    load_dotenv(project_root / ".env", override=False)  # Don't override our test DB settings
+
+    load_dotenv(project_root / ".env", override=True)  # Load .env first
 except ImportError:
     print("⚠️  python-dotenv not available, make sure .env variables are set manually")
 except Exception as e:
     print(f"⚠️  Could not load .env file: {e}")
 
-# 6. Add parent directory to path
+
+# 3. Generate test database names
+def generate_test_db_name() -> str:
+    """Generate unique test database name (copied from demo_data.py to avoid imports)."""
+    import random
+    import string
+
+    return "fullon2_test_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+
+test_db_base = generate_test_db_name()
+test_db_orm = test_db_base
+test_db_ohlcv = f"{test_db_base}_ohlcv"
+
+# 4. Override database environment variables AFTER loading .env (so they take precedence)
+os.environ["DB_NAME"] = test_db_orm
+os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+# CRITICAL: Also override DB_TEST_NAME to prevent test mode from using wrong database
+os.environ["DB_TEST_NAME"] = test_db_orm
+
+# Disable service auto-start for examples (we only need the API, not background services)
+os.environ["SERVICE_AUTO_START_ENABLED"] = "false"
+os.environ["HEALTH_MONITOR_ENABLED"] = "false"
+
+# 5. Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# 6. Third-party imports (non-fullon packages)
+import httpx
+
 # 7. NOW safe to import ALL fullon modules (env vars set, .env loaded)
-from demo_data import (
-    create_dual_test_databases,
-    drop_dual_test_databases,
-    install_demo_data
-)
+from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
 from fullon_log import get_component_logger
+from fullon_master_api.auth.jwt import JWTHandler
 from fullon_orm import init_db
 
-# 8. Import JWT handler
-# NOTE: We do NOT import settings at module level to avoid early caching
-try:
-    from fullon_master_api.auth.jwt import JWTHandler
-except ImportError:
-    # Fallback for when running outside the project
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-    from fullon_master_api.auth.jwt import JWTHandler
-
-# 9. Initialize logger
+# 8. Initialize logger
 logger = get_component_logger("fullon.examples.ohlcv_routes")
 
 API_BASE_URL = "http://localhost:8000"
@@ -106,6 +102,35 @@ async def start_test_server():
     task = asyncio.create_task(server.serve())
 
     return server, task
+
+
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
 
 
 class OHLCVAPIClient:
@@ -128,11 +153,9 @@ class OHLCVAPIClient:
 
     def create_demo_token(self, user_id: int = 1) -> str:
         """Create a demo JWT token for testing."""
-        return self.jwt_handler.create_token({
-            "sub": str(user_id),
-            "user_id": user_id,
-            "scopes": ["read", "write"]
-        })
+        return self.jwt_handler.create_token(
+            {"sub": str(user_id), "user_id": user_id, "scopes": ["read", "write"]}
+        )
 
     async def get_ohlcv(
         self,
@@ -159,7 +182,7 @@ class OHLCVAPIClient:
         """
         # Use the mounted endpoint path with timeframe in the path
         # URL-encode symbol to handle slashes (e.g., BTC/USDC -> BTC%2FUSDC)
-        encoded_symbol = quote(symbol, safe='')
+        encoded_symbol = quote(symbol, safe="")
         url = f"{self.base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/{timeframe}"
 
         params = {"limit": limit}
@@ -217,7 +240,7 @@ class OHLCVAPIClient:
             List of trade objects, or None if endpoint not available
         """
         # URL-encode symbol to handle slashes
-        encoded_symbol = quote(symbol, safe='')
+        encoded_symbol = quote(symbol, safe="")
         url = f"{self.base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}"
 
         params = {"limit": limit}
@@ -267,7 +290,7 @@ class OHLCVAPIClient:
             Latest OHLCV candle data as dict
         """
         # URL-encode symbol to handle slashes
-        encoded_symbol = quote(symbol, safe='')
+        encoded_symbol = quote(symbol, safe="")
         url = f"{self.base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/latest"
 
         params = {"timeframe": timeframe}
@@ -391,8 +414,8 @@ async def example_ohlcv_data():
         exchange="hyperliquid", symbol="BTC/USDC", timeframe="1m", limit=10
     )
 
-    if ohlcv and isinstance(ohlcv, dict) and ohlcv.get('candles'):
-        candles = ohlcv['candles']
+    if ohlcv and isinstance(ohlcv, dict) and ohlcv.get("candles"):
+        candles = ohlcv["candles"]
         print(f"   ✅ Retrieved {len(candles)} candles")
         print("   Latest candle:")
         latest = candles[-1] if candles else None
@@ -411,7 +434,7 @@ async def example_ohlcv_data():
         exchange="hyperliquid", symbol="BTC/USDC", timeframe="1h", limit=24
     )
 
-    if ohlcv_1h and isinstance(ohlcv_1h, dict) and ohlcv_1h.get('candles'):
+    if ohlcv_1h and isinstance(ohlcv_1h, dict) and ohlcv_1h.get("candles"):
         print(f"   ✅ Retrieved {len(ohlcv_1h['candles'])} hourly candles (last 24 hours)")
     else:
         print("   ❌ Failed to retrieve 1h OHLCV data (may be due to missing database)")
@@ -474,8 +497,8 @@ async def example_time_range_query():
         end_time=end_time,
     )
 
-    if ohlcv and isinstance(ohlcv, dict) and ohlcv.get('candles'):
-        candles = ohlcv['candles']
+    if ohlcv and isinstance(ohlcv, dict) and ohlcv.get("candles"):
+        candles = ohlcv["candles"]
         print(f"   ✅ Retrieved {len(candles)} candles for specified time range")
 
         if len(candles) > 0:
@@ -506,7 +529,7 @@ async def example_multiple_timeframes():
             exchange="hyperliquid", symbol="BTC/USDC", timeframe=tf, limit=5
         )
 
-        if ohlcv and isinstance(ohlcv, dict) and ohlcv.get('candles'):
+        if ohlcv and isinstance(ohlcv, dict) and ohlcv.get("candles"):
             print(f"   ✅ Got {len(ohlcv['candles'])} {tf} candles")
         else:
             print(f"   ❌ Failed to get {tf} candles (may be due to missing database)")
@@ -535,7 +558,11 @@ async def main():
         # Start embedded test server as async background task
         print("\n4. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)  # Wait for server to start
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server(API_BASE_URL, timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run examples
@@ -544,6 +571,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 

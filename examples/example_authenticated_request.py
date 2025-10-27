@@ -37,12 +37,15 @@ from typing import Optional
 # 2. Third-party imports (non-fullon packages)
 import httpx
 
+
 # 3. Generate test database names FIRST (before .env and imports)
 def generate_test_db_name() -> str:
     """Generate unique test database name (copied from demo_data.py to avoid imports)."""
     import random
     import string
-    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    return "fullon2_test_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
 
 test_db_base = generate_test_db_name()
 test_db_orm = test_db_base
@@ -57,6 +60,7 @@ os.environ["DB_TEST_NAME"] = test_db_orm
 project_root = Path(__file__).parent.parent
 try:
     from dotenv import load_dotenv
+
     load_dotenv(project_root / ".env", override=False)
 except ImportError:
     print("⚠️  python-dotenv not available, make sure .env variables are set manually")
@@ -67,11 +71,7 @@ except Exception as e:
 sys.path.insert(0, str(Path(__file__).parent))
 
 # 7. NOW safe to import ALL fullon modules
-from demo_data import (
-    create_dual_test_databases,
-    drop_dual_test_databases,
-    install_demo_data
-)
+from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
 from fullon_log import get_component_logger
 from fullon_orm import init_db
 
@@ -91,6 +91,35 @@ async def start_test_server():
     task = asyncio.create_task(server.serve())
 
     return server, task
+
+
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
 
 
 class APIClient:
@@ -377,7 +406,11 @@ async def main():
         # Start embedded test server
         print("\n4. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server(API_BASE_URL, timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run examples
@@ -386,6 +419,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 

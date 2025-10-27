@@ -37,11 +37,14 @@ from typing import Dict, Any, Optional
 # 2. Third-party imports (non-fullon packages)
 import httpx
 
+
 # 3. Generate test database names FIRST (before .env and imports)
 def generate_test_db_name() -> str:
     """Generate unique test database name."""
     import random, string
-    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    return "fullon2_test_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
 
 test_db_base = generate_test_db_name()
 test_db_orm = test_db_base
@@ -56,8 +59,10 @@ os.environ["DB_TEST_NAME"] = test_db_orm
 project_root = Path(__file__).parent.parent
 try:
     from dotenv import load_dotenv
+
     load_dotenv(project_root / ".env", override=False)
-except: pass
+except:
+    pass
 
 # 6. Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -72,15 +77,45 @@ logger = get_component_logger("fullon.api_key_auth.example")
 
 API_BASE_URL = "http://localhost:8000"
 
+
 async def start_test_server():
     """Start uvicorn server as async background task."""
     import uvicorn
     from fullon_master_api.main import app
+
     config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
     server = uvicorn.Server(config)
     task = asyncio.create_task(server.serve())
     return server, task
 
+
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
 
 
 import asyncio
@@ -173,17 +208,19 @@ class ApiKeyAuthExample:
             # Login credentials (using demo data credentials)
             login_data = {
                 "username": "admin@fullon",  # Demo user from install_demo_data()
-                "password": "password"       # Demo password (hashed in DB)
+                "password": "password",  # Demo password (hashed in DB)
             }
 
             response = await self.client.post(
                 f"{self.base_url}/api/v1/auth/login",
                 data=login_data,  # OAuth2 uses form data, not JSON
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
             if response.status_code != 200:
-                logger.error("JWT login failed", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "JWT login failed", status_code=response.status_code, response=response.text
+                )
                 return False
 
             data = response.json()
@@ -210,7 +247,7 @@ class ApiKeyAuthExample:
             api_key_data = {
                 "name": "Example API Key",
                 "description": "Created by API key authentication example",
-                "scopes": "read,write"  # Comma-separated string (fullon_orm format)
+                "scopes": "read,write",  # Comma-separated string (fullon_orm format)
             }
 
             response = await self.client.post(
@@ -218,12 +255,16 @@ class ApiKeyAuthExample:
                 json=api_key_data,
                 headers={
                     "Authorization": f"Bearer {self.jwt_token}",
-                    "Content-Type": "application/json"
-                }
+                    "Content-Type": "application/json",
+                },
             )
 
             if response.status_code != 200:
-                logger.error("API key creation failed", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "API key creation failed",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
                 return False
 
             data = response.json()
@@ -247,12 +288,15 @@ class ApiKeyAuthExample:
         try:
             # Test API key by accessing user profile endpoint
             response = await self.client.get(
-                f"{self.base_url}/api/v1/orm/users/me",
-                headers={"X-API-Key": self.api_key}
+                f"{self.base_url}/api/v1/orm/users/me", headers={"X-API-Key": self.api_key}
             )
 
             if response.status_code != 200:
-                logger.error("API key authentication failed", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "API key authentication failed",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
                 return False
 
             api_key_user_data = response.json()
@@ -276,12 +320,15 @@ class ApiKeyAuthExample:
 
         try:
             response = await self.client.get(
-                f"{self.base_url}/api/v1/orm/api_keys/me",
-                headers={"X-API-Key": self.api_key}
+                f"{self.base_url}/api/v1/orm/api_keys/me", headers={"X-API-Key": self.api_key}
             )
 
             if response.status_code != 200:
-                logger.error("API key listing failed", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "API key listing failed",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
                 return False
 
             api_keys = response.json()
@@ -301,12 +348,13 @@ class ApiKeyAuthExample:
         try:
             # First get the API key ID
             response = await self.client.get(
-                f"{self.base_url}/api/v1/orm/api_keys/me",
-                headers={"X-API-Key": self.api_key}
+                f"{self.base_url}/api/v1/orm/api_keys/me", headers={"X-API-Key": self.api_key}
             )
 
             if response.status_code != 200:
-                logger.error("Failed to get API keys for deactivation", status_code=response.status_code)
+                logger.error(
+                    "Failed to get API keys for deactivation", status_code=response.status_code
+                )
                 return False
 
             api_keys = response.json()
@@ -321,11 +369,15 @@ class ApiKeyAuthExample:
 
             response = await self.client.patch(
                 f"{self.base_url}/api/v1/orm/api_keys/{key_uid}/deactivate",
-                headers={"X-API-Key": self.api_key}
+                headers={"X-API-Key": self.api_key},
             )
 
             if response.status_code != 200:
-                logger.error("API key deactivation failed", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "API key deactivation failed",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
                 return False
 
             logger.info("✓ API key deactivated successfully")
@@ -342,12 +394,13 @@ class ApiKeyAuthExample:
         try:
             # Try to access endpoint with deactivated key
             response = await self.client.get(
-                f"{self.base_url}/api/v1/orm/users/me",
-                headers={"X-API-Key": self.api_key}
+                f"{self.base_url}/api/v1/orm/users/me", headers={"X-API-Key": self.api_key}
             )
 
             if response.status_code != 401:
-                logger.error("Deactivated key should be rejected with 401", status_code=response.status_code)
+                logger.error(
+                    "Deactivated key should be rejected with 401", status_code=response.status_code
+                )
                 return False
 
             logger.info("✓ Deactivated key correctly rejected (401 Unauthorized)")
@@ -369,7 +422,7 @@ class ApiKeyAuthExample:
                 "name": "Expired Test Key",
                 "description": "Test key with past expiration",
                 "expires_at": expired_time.isoformat(),
-                "scopes": "read"  # Comma-separated string (fullon_orm format)
+                "scopes": "read",  # Comma-separated string (fullon_orm format)
             }
 
             response = await self.client.post(
@@ -377,12 +430,16 @@ class ApiKeyAuthExample:
                 json=expired_key_data,
                 headers={
                     "Authorization": f"Bearer {self.jwt_token}",
-                    "Content-Type": "application/json"
-                }
+                    "Content-Type": "application/json",
+                },
             )
 
             if response.status_code != 200:
-                logger.error("Expired key creation failed", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "Expired key creation failed",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
                 return False
 
             expired_key = response.json().get("key")
@@ -390,12 +447,13 @@ class ApiKeyAuthExample:
 
             # Test the expired key
             response = await self.client.get(
-                f"{self.base_url}/api/v1/orm/users/me",
-                headers={"X-API-Key": expired_key}
+                f"{self.base_url}/api/v1/orm/users/me", headers={"X-API-Key": expired_key}
             )
 
             if response.status_code != 401:
-                logger.error("Expired key should be rejected with 401", status_code=response.status_code)
+                logger.error(
+                    "Expired key should be rejected with 401", status_code=response.status_code
+                )
                 return False
 
             logger.info("✓ Expired key correctly rejected (401 Unauthorized)")
@@ -415,12 +473,14 @@ class ApiKeyAuthExample:
             invalid_key = "invalid_api_key_without_prefix"
 
             response = await self.client.get(
-                f"{self.base_url}/api/v1/orm/users/me",
-                headers={"X-API-Key": invalid_key}
+                f"{self.base_url}/api/v1/orm/users/me", headers={"X-API-Key": invalid_key}
             )
 
             if response.status_code != 401:
-                logger.error("Invalid format key should be rejected with 401", status_code=response.status_code)
+                logger.error(
+                    "Invalid format key should be rejected with 401",
+                    status_code=response.status_code,
+                )
                 return False
 
             logger.info("✓ Testing key without required prefix")
@@ -440,11 +500,15 @@ class ApiKeyAuthExample:
             # Test JWT authentication still works
             response = await self.client.get(
                 f"{self.base_url}/api/v1/orm/users/me",
-                headers={"Authorization": f"Bearer {self.jwt_token}"}
+                headers={"Authorization": f"Bearer {self.jwt_token}"},
             )
 
             if response.status_code != 200:
-                logger.error("JWT authentication regression", status_code=response.status_code, response=response.text)
+                logger.error(
+                    "JWT authentication regression",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
                 return False
 
             jwt_user_data = response.json()
@@ -460,8 +524,6 @@ class ApiKeyAuthExample:
         except Exception as e:
             logger.error("JWT verification error", error=str(e))
             return False
-
-
 
 
 async def setup_test_environment():
@@ -482,6 +544,7 @@ async def setup_test_environment():
     print("✅ Test environment ready!")
     print("=" * 60)
 
+
 async def main():
     """Main entry point - self-contained with setup and cleanup."""
     print("=" * 60)
@@ -498,13 +561,17 @@ async def main():
         # Start embedded test server
         print("\n4. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server("http://localhost:8000", timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run example
         example = ApiKeyAuthExample()
         success = await example.run_example()
-        
+
         if success:
             print("\n🎉 All API key authentication tests passed!")
         else:
@@ -513,6 +580,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 
@@ -542,6 +610,7 @@ async def main():
             logger.warning("Cleanup error", error=str(cleanup_error))
 
     print("=" * 60)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -36,11 +36,19 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# 2. Third-party imports (non-fullon packages)
-import httpx
+# 2. Load .env file FIRST before ANY other imports (critical for env var caching)
+project_root = Path(__file__).parent.parent
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(project_root / ".env", override=True)  # Load .env first
+except ImportError:
+    print("⚠️  python-dotenv not available, make sure .env variables are set manually")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
 
 
-# 3. Generate test database names FIRST (before .env and imports)
+# 3. Generate test database names
 def generate_test_db_name() -> str:
     """Generate unique test database name (copied from demo_data.py to avoid imports)."""
     import random
@@ -53,26 +61,23 @@ test_db_base = generate_test_db_name()
 test_db_orm = test_db_base
 test_db_ohlcv = f"{test_db_base}_ohlcv"
 
-# 4. Set ALL database environment variables BEFORE loading .env
+# 4. Override database environment variables AFTER loading .env (so they take precedence)
 os.environ["DB_NAME"] = test_db_orm
 os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+# CRITICAL: Also override DB_TEST_NAME to prevent test mode from using wrong database
 os.environ["DB_TEST_NAME"] = test_db_orm
 
-# 5. NOW load .env file
-project_root = Path(__file__).parent.parent
-try:
-    from dotenv import load_dotenv
+# Disable service auto-start for examples (we only need the API, not background services)
+os.environ["SERVICE_AUTO_START_ENABLED"] = "false"
+os.environ["HEALTH_MONITOR_ENABLED"] = "false"
 
-    load_dotenv(project_root / ".env", override=False)
-except ImportError:
-    print("⚠️  python-dotenv not available, make sure .env variables are set manually")
-except Exception as e:
-    print(f"⚠️  Could not load .env file: {e}")
-
-# 6. Add parent directory to path
+# 5. Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# 7. NOW safe to import ALL fullon modules
+# 6. Third-party imports (non-fullon packages)
+import httpx
+
+# 7. NOW safe to import ALL fullon modules (env vars set, .env loaded)
 from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
 from fullon_log import get_component_logger
 from fullon_orm import init_db

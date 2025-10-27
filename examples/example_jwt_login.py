@@ -42,45 +42,49 @@ from pathlib import Path
 import argparse
 from typing import Optional
 
-# 2. Third-party imports (non-fullon packages)
-import httpx
-
-# 3. Generate test database names FIRST (before .env and imports)
-def generate_test_db_name() -> str:
-    """Generate unique test database name (copied from demo_data.py to avoid imports)."""
-    import random
-    import string
-    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-
-test_db_base = generate_test_db_name()
-test_db_orm = test_db_base
-test_db_ohlcv = f"{test_db_base}_ohlcv"
-
-# 4. Set ALL database environment variables BEFORE loading .env (so they won't be overridden)
-os.environ["DB_NAME"] = test_db_orm
-os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
-# CRITICAL: Also override DB_TEST_NAME to prevent test mode from using wrong database
-os.environ["DB_TEST_NAME"] = test_db_orm
-
-# 5. NOW load .env file (won't override existing env vars)
+# 2. Load .env file FIRST before ANY other imports (critical for env var caching)
 project_root = Path(__file__).parent.parent
 try:
     from dotenv import load_dotenv
-    load_dotenv(project_root / ".env", override=False)  # Don't override our test DB settings
+
+    load_dotenv(project_root / ".env", override=True)  # Load .env first
 except ImportError:
     print("⚠️  python-dotenv not available, make sure .env variables are set manually")
 except Exception as e:
     print(f"⚠️  Could not load .env file: {e}")
 
-# 6. Add parent directory to path
+
+# 3. Generate test database names
+def generate_test_db_name() -> str:
+    """Generate unique test database name (copied from demo_data.py to avoid imports)."""
+    import random
+    import string
+
+    return "fullon2_test_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+
+test_db_base = generate_test_db_name()
+test_db_orm = test_db_base
+test_db_ohlcv = f"{test_db_base}_ohlcv"
+
+# 4. Override database environment variables AFTER loading .env (so they take precedence)
+os.environ["DB_NAME"] = test_db_orm
+os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+# CRITICAL: Also override DB_TEST_NAME to prevent test mode from using wrong database
+os.environ["DB_TEST_NAME"] = test_db_orm
+
+# Disable service auto-start for examples (we only need the API, not background services)
+os.environ["SERVICE_AUTO_START_ENABLED"] = "false"
+os.environ["HEALTH_MONITOR_ENABLED"] = "false"
+
+# 5. Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# 6. Third-party imports (non-fullon packages)
+import httpx
+
 # 7. NOW safe to import ALL fullon modules (env vars set, .env loaded)
-from demo_data import (
-    create_dual_test_databases,
-    drop_dual_test_databases,
-    install_demo_data
-)
+from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
 from fullon_log import get_component_logger
 from fullon_orm import init_db
 
@@ -100,6 +104,35 @@ async def start_test_server():
     task = asyncio.create_task(server.serve())
 
     return server, task
+
+
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
 
 
 async def login(username: str, password: str) -> Optional[dict]:
@@ -292,7 +325,11 @@ async def main(username: str, password: str):
         # Start embedded test server
         print("\n4. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)  # Wait for server to start
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server(API_BASE_URL, timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run examples
@@ -301,6 +338,7 @@ async def main(username: str, password: str):
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 

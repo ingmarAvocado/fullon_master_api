@@ -24,15 +24,8 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from pathlib import Path
 
-# Load environment variables from .env file
-project_root = Path(__file__).parent.parent
-try:
-    from dotenv import load_dotenv
-    load_dotenv(project_root / ".env")
-except ImportError:
-    print("⚠️  python-dotenv not available, make sure .env variables are set manually")
-except Exception as e:
-    print(f"⚠️  Could not load .env file: {e}")
+# Environment variables should be loaded by the calling script before importing this module
+# to avoid caching issues with pydantic-settings and other modules
 
 import redis
 from fullon_log import get_component_logger
@@ -45,13 +38,13 @@ fullon_logger = get_component_logger("fullon.master_api.example.demo_data")
 
 
 class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    END = '\033[0m'
-    BOLD = '\033[1m'
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    END = "\033[0m"
+    BOLD = "\033[1m"
 
 
 def print_success(msg: str):
@@ -78,13 +71,13 @@ def print_header(msg: str):
 
 def generate_test_db_name(worker_id: str = "") -> str:
     """Generate worker-aware test database name."""
-    base_name = os.getenv('DB_TEST_NAME', 'fullon_master_api_test')
+    base_name = os.getenv("DB_TEST_NAME", "fullon_master_api_test")
 
     if worker_id:
         return f"{base_name}_{worker_id}"
     else:
         # Fallback to random for manual/CLI usage
-        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
         return f"{base_name}_{random_suffix}"
 
 
@@ -97,6 +90,7 @@ async def create_test_database(db_name: str) -> bool:
         # Try to use fullon_orm database utilities first
         try:
             from fullon_orm.database import DatabaseManager
+
             db_manager = DatabaseManager()
 
             # Use fullon_orm database creation if available
@@ -117,11 +111,7 @@ async def create_test_database(db_name: str) -> bool:
             password = os.getenv("DB_PASSWORD", "")
 
             conn = await asyncpg.connect(
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                database="postgres"
+                host=host, port=port, user=user, password=password, database="postgres"
             )
 
             try:
@@ -150,6 +140,7 @@ async def drop_test_database(db_name: str) -> bool:
         # Try to use fullon_orm database utilities first
         try:
             from fullon_orm.database import DatabaseManager
+
             db_manager = DatabaseManager()
 
             # Use fullon_orm database dropping if available
@@ -169,21 +160,20 @@ async def drop_test_database(db_name: str) -> bool:
             password = os.getenv("DB_PASSWORD", "")
 
             conn = await asyncpg.connect(
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                database="postgres"
+                host=host, port=port, user=user, password=password, database="postgres"
             )
 
             try:
                 # Connection termination and database dropping require direct SQL (administrative)
-                await conn.execute("""
+                await conn.execute(
+                    """
                     SELECT pg_terminate_backend(pg_stat_activity.pid)
                     FROM pg_stat_activity
                     WHERE pg_stat_activity.datname = $1
                     AND pid <> pg_backend_pid()
-                """, db_name)
+                """,
+                    db_name,
+                )
 
                 await conn.execute(f'DROP DATABASE IF EXISTS "{db_name}"')
 
@@ -249,8 +239,8 @@ async def drop_dual_test_databases(orm_db_name: str, ohlcv_db_name: str) -> bool
 async def database_context_for_test(db_name: str):
     """Context manager for test database lifecycle (following fullon_orm_api pattern)"""
     # Save original environment variables
-    original_db_url = os.getenv('DATABASE_URL', '')
-    original_db_name = os.getenv('DB_NAME', '')
+    original_db_url = os.getenv("DATABASE_URL", "")
+    original_db_name = os.getenv("DB_NAME", "")
 
     # Update DATABASE_URL and DB_NAME to point to test database
     host = os.getenv("DB_HOST", "localhost")
@@ -259,8 +249,8 @@ async def database_context_for_test(db_name: str):
     password = os.getenv("DB_PASSWORD", "")
 
     test_db_url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}"
-    os.environ['DATABASE_URL'] = test_db_url
-    os.environ['DB_NAME'] = db_name
+    os.environ["DATABASE_URL"] = test_db_url
+    os.environ["DB_NAME"] = db_name
 
     try:
         # Create test database
@@ -288,14 +278,14 @@ async def database_context_for_test(db_name: str):
     finally:
         # Restore original environment variables
         if original_db_url:
-            os.environ['DATABASE_URL'] = original_db_url
+            os.environ["DATABASE_URL"] = original_db_url
         else:
-            os.environ.pop('DATABASE_URL', None)
+            os.environ.pop("DATABASE_URL", None)
 
         if original_db_name:
-            os.environ['DB_NAME'] = original_db_name
+            os.environ["DB_NAME"] = original_db_name
         else:
-            os.environ.pop('DB_NAME', None)
+            os.environ.pop("DB_NAME", None)
 
         # Drop test database
         await drop_test_database(db_name)
@@ -305,6 +295,7 @@ async def clear_fullon_cache():
     """Clear fullon_orm cache outside of transaction context to avoid greenlet violations"""
     try:
         from fullon_orm.cache import cache_manager
+
         cache_manager.region.invalidate()
         cache_manager.invalidate_exchange_caches()
         print_info("Cleared fullon_orm cache")
@@ -393,15 +384,15 @@ async def install_ohlcv_sample_data():
         print_info(f"  Using OHLCV database: {ohlcv_db_name}")
 
         # CRITICAL: Override DB_NAME for fullon_ohlcv to use correct database
-        original_db_name = os.environ.get('DB_NAME')
-        os.environ['DB_NAME'] = ohlcv_db_name
+        original_db_name = os.environ.get("DB_NAME")
+        os.environ["DB_NAME"] = ohlcv_db_name
 
         # Step 1: Initialize CandleRepository
         print_info("  Initializing CandleRepository for hyperliquid/BTC/USDC...")
         repo = CandleRepository(
             exchange="hyperliquid",
             symbol="BTC/USDC",
-            test=False  # Uses DB_NAME from environment
+            test=False,  # Uses DB_NAME from environment
         )
         await repo.initialize()
         print_success("  Repository initialized")
@@ -467,7 +458,7 @@ async def install_ohlcv_sample_data():
                     high=high,
                     low=low,
                     close=close_price,
-                    vol=volume
+                    vol=volume,
                 )
                 batch_candles.append(candle)
 
@@ -488,9 +479,9 @@ async def install_ohlcv_sample_data():
 
         # Restore original DB_NAME
         if original_db_name:
-            os.environ['DB_NAME'] = original_db_name
+            os.environ["DB_NAME"] = original_db_name
         else:
-            os.environ.pop('DB_NAME', None)
+            os.environ.pop("DB_NAME", None)
 
         print_success("  OHLCV sample data installation complete!")
 
@@ -503,6 +494,7 @@ async def install_ohlcv_sample_data():
     except Exception as e:
         print_error(f"Failed to install OHLCV sample data: {e}")
         import traceback
+
         print_error(traceback.format_exc())
         print_warning("  OHLCV examples may return empty results")
         fullon_logger.warning(f"OHLCV sample data failed: {e}")
@@ -524,6 +516,7 @@ async def install_admin_user_internal(db: DatabaseContext) -> int | None:
     # Create User ORM model with hashed password
     try:
         from fullon_master_api.auth.jwt import hash_password
+
         hashed_password = hash_password("password")
         print_info(f"Password hashed successfully (starts with: {hashed_password[:10]}...)")
     except Exception as e:
@@ -539,7 +532,7 @@ async def install_admin_user_internal(db: DatabaseContext) -> int | None:
         name="robert",
         lastname="plant",
         phone="666666666",
-        id_num="3242"
+        id_num="3242",
     )
 
     try:
@@ -551,7 +544,9 @@ async def install_admin_user_internal(db: DatabaseContext) -> int | None:
         return None
 
 
-async def install_exchanges_internal(db: DatabaseContext, uid: int) -> tuple[int | None, int | None]:
+async def install_exchanges_internal(
+    db: DatabaseContext, uid: int
+) -> tuple[int | None, int | None]:
     """Install exchanges using provided DatabaseContext and ORM models (adapted fullon_orm pattern for 3 exchanges)."""
     print_info("Installing exchanges...")
 
@@ -574,7 +569,9 @@ async def install_exchanges_internal(db: DatabaseContext, uid: int) -> tuple[int
         for ce in cat_exchanges:
             if ce.name == exchange_name:
                 cat_ex_id = ce.cat_ex_id
-                print_info(f"  Category exchange '{exchange_name}' already exists with ID: {cat_ex_id}")
+                print_info(
+                    f"  Category exchange '{exchange_name}' already exists with ID: {cat_ex_id}"
+                )
                 break
 
         # If no category exchange exists, create one (fullon_orm pattern)
@@ -598,11 +595,7 @@ async def install_exchanges_internal(db: DatabaseContext, uid: int) -> tuple[int
         else:
             # Create user exchange (fullon_orm pattern)
             exchange = Exchange(
-                uid=uid,
-                cat_ex_id=cat_ex_id,
-                name=user_exchange_name,
-                test=False,
-                active=True
+                uid=uid, cat_ex_id=cat_ex_id, name=user_exchange_name, test=False, active=True
             )
 
             created_exchange = await db.exchanges.add_user_exchange(exchange)
@@ -633,6 +626,7 @@ async def install_symbols_internal(db: DatabaseContext, cat_ex_id: int | None):
     # Clear cache and get fresh cat_exchanges (they were just created) - like ticker service
     try:
         from fullon_orm.cache import cache_manager
+
         cache_manager.region.invalidate()  # Clear entire cache
         cache_manager.invalidate_exchange_caches()
         print_info("  Cache cleared before symbol installation")
@@ -681,7 +675,7 @@ async def install_symbols_internal(db: DatabaseContext, cat_ex_id: int | None):
                 "quote": "USDC",
                 "futures": True,
             }
-        ]
+        ],
     }
 
     # Create symbols for each exchange
@@ -703,8 +697,7 @@ async def install_symbols_internal(db: DatabaseContext, cat_ex_id: int | None):
             existing_symbol = None
             try:
                 existing_symbol = await db.symbols.get_by_symbol(
-                    symbol_data["symbol"],
-                    cat_ex_id=symbol_data["cat_ex_id"]
+                    symbol_data["symbol"], cat_ex_id=symbol_data["cat_ex_id"]
                 )
             except (AttributeError, Exception):
                 # Method might not exist or fail, continue with creation
@@ -723,7 +716,7 @@ async def install_symbols_internal(db: DatabaseContext, cat_ex_id: int | None):
                 decimals=symbol_data["decimals"],
                 base=symbol_data["base"],
                 quote=symbol_data["quote"],
-                futures=symbol_data["futures"]
+                futures=symbol_data["futures"],
             )
 
             # Use repository method if available (preferred fullon_orm pattern)
@@ -757,7 +750,7 @@ async def install_bots_internal(db: DatabaseContext, uid: int, ex_id: int, cat_e
 
     try:
         # First ensure we have the required cat_strategies using repository
-        cat_strategy_names = ['rsi_hayden_long', 'rsi_hayden_short', 'llm_trader']
+        cat_strategy_names = ["rsi_hayden_long", "rsi_hayden_short", "llm_trader"]
         cat_strategies = {}
 
         for name in cat_strategy_names:
@@ -778,7 +771,7 @@ async def install_bots_internal(db: DatabaseContext, uid: int, ex_id: int, cat_e
                     take_profit=Decimal("2.0"),
                     stop_loss=Decimal("1.0"),
                     pre_load_bars=200,
-                    feeds=2 if 'rsi' in name else 4
+                    feeds=2 if "rsi" in name else 4,
                 )
                 installed_strategy = await db.strategies.install_strategy(cat_strategy)
                 if installed_strategy:
@@ -803,7 +796,7 @@ async def install_bots_internal(db: DatabaseContext, uid: int, ex_id: int, cat_e
         cat_exchanges = await db.exchanges.get_cat_exchanges(all=True)
         cat_exchanges_dict = {ce.name: ce.cat_ex_id for ce in cat_exchanges}
 
-        kraken_cat_id = cat_exchanges_dict.get('kraken')
+        kraken_cat_id = cat_exchanges_dict.get("kraken")
         if not kraken_cat_id:
             raise Exception("Kraken exchange not found")
 
@@ -815,55 +808,69 @@ async def install_bots_internal(db: DatabaseContext, uid: int, ex_id: int, cat_e
         # Create bots with strategies and feeds using ORM models
         bot_data = [
             {
-                'bot': Bot(uid=uid, name='HAYDEN RSI LONG BTC/USDC', dry_run=True, active=True),
-                'strategy_data': {
-                    'cat_str_id': cat_strategies['rsi_hayden_long'],
-                    'leverage': 2, 'size': None, 'size_pct': Decimal("20"),
-                    'size_currency': "USD", 'take_profit': Decimal("3"),
-                    'trailing_stop': Decimal("3"), 'timeout': None
+                "bot": Bot(uid=uid, name="HAYDEN RSI LONG BTC/USDC", dry_run=True, active=True),
+                "strategy_data": {
+                    "cat_str_id": cat_strategies["rsi_hayden_long"],
+                    "leverage": 2,
+                    "size": None,
+                    "size_pct": Decimal("20"),
+                    "size_currency": "USD",
+                    "take_profit": Decimal("3"),
+                    "trailing_stop": Decimal("3"),
+                    "timeout": None,
                 },
-                'feeds_data': [
-                    {'period': 'Ticks', 'compression': 1, 'order': 1},
-                    {'period': 'Minutes', 'compression': 60, 'order': 2}
-                ]
+                "feeds_data": [
+                    {"period": "Ticks", "compression": 1, "order": 1},
+                    {"period": "Minutes", "compression": 60, "order": 2},
+                ],
             },
             {
-                'bot': Bot(uid=uid, name='HAYDEN RSI SHORT BTC/USDC', dry_run=True, active=True),
-                'strategy_data': {
-                    'cat_str_id': cat_strategies['rsi_hayden_short'],
-                    'leverage': 2, 'size': None, 'size_pct': Decimal("20"),
-                    'size_currency': "USD", 'take_profit': Decimal("2"),
-                    'trailing_stop': Decimal("1"), 'timeout': None
+                "bot": Bot(uid=uid, name="HAYDEN RSI SHORT BTC/USDC", dry_run=True, active=True),
+                "strategy_data": {
+                    "cat_str_id": cat_strategies["rsi_hayden_short"],
+                    "leverage": 2,
+                    "size": None,
+                    "size_pct": Decimal("20"),
+                    "size_currency": "USD",
+                    "take_profit": Decimal("2"),
+                    "trailing_stop": Decimal("1"),
+                    "timeout": None,
                 },
-                'feeds_data': [
-                    {'period': 'Ticks', 'compression': 1, 'order': 1},
-                    {'period': 'Minutes', 'compression': 60, 'order': 2}
-                ]
+                "feeds_data": [
+                    {"period": "Ticks", "compression": 1, "order": 1},
+                    {"period": "Minutes", "compression": 60, "order": 2},
+                ],
             },
             {
-                'bot': Bot(uid=uid, name='HTEST LLM trader', dry_run=True, active=True),
-                'strategy_data': {
-                    'cat_str_id': cat_strategies['llm_trader'],
-                    'leverage': 2, 'size': None, 'size_pct': Decimal("20"),
-                    'size_currency': "USD", 'take_profit': Decimal("2"), 'timeout': None
+                "bot": Bot(uid=uid, name="HTEST LLM trader", dry_run=True, active=True),
+                "strategy_data": {
+                    "cat_str_id": cat_strategies["llm_trader"],
+                    "leverage": 2,
+                    "size": None,
+                    "size_pct": Decimal("20"),
+                    "size_currency": "USD",
+                    "take_profit": Decimal("2"),
+                    "timeout": None,
                 },
-                'feeds_data': [
-                    {'period': 'Ticks', 'compression': 1, 'order': 1},
-                    {'period': 'Minutes', 'compression': 60, 'order': 2},
-                    {'period': 'Minutes', 'compression': 240, 'order': 3},
-                    {'period': 'Days', 'compression': 1, 'order': 4}
-                ]
-            }
+                "feeds_data": [
+                    {"period": "Ticks", "compression": 1, "order": 1},
+                    {"period": "Minutes", "compression": 60, "order": 2},
+                    {"period": "Minutes", "compression": 240, "order": 3},
+                    {"period": "Days", "compression": 1, "order": 4},
+                ],
+            },
         ]
 
         # Create each bot using repository methods
         for bot_config in bot_data:
-            bot_model = bot_config['bot']
+            bot_model = bot_config["bot"]
 
             # Check if bot already exists using repository (if method exists)
             try:
                 existing_bots = await db.bots.get_bots_by_user(bot_model.uid)
-                bot_exists = any(b.name == bot_model.name for b in existing_bots if hasattr(b, 'name'))
+                bot_exists = any(
+                    b.name == bot_model.name for b in existing_bots if hasattr(b, "name")
+                )
 
                 if bot_exists:
                     print_warning(f"  Bot '{bot_model.name}' already exists")
@@ -881,34 +888,34 @@ async def install_bots_internal(db: DatabaseContext, uid: int, ex_id: int, cat_e
                 await db.bots.add_exchange_to_bot(bot_id, ex_id)
 
                 # Add strategy using repository method - create Strategy model instance
-                strategy_data = bot_config['strategy_data'].copy()
-                strategy_data['bot_id'] = bot_id
+                strategy_data = bot_config["strategy_data"].copy()
+                strategy_data["bot_id"] = bot_id
 
                 # Create Strategy model instance with explicit field assignment
                 strategy = Strategy(
-                    bot_id=strategy_data['bot_id'],
-                    cat_str_id=strategy_data['cat_str_id'],
-                    leverage=strategy_data.get('leverage'),
-                    size=strategy_data.get('size'),
-                    size_pct=strategy_data.get('size_pct'),
-                    size_currency=strategy_data.get('size_currency'),
-                    take_profit=strategy_data.get('take_profit'),
-                    trailing_stop=strategy_data.get('trailing_stop'),
-                    timeout=strategy_data.get('timeout')
+                    bot_id=strategy_data["bot_id"],
+                    cat_str_id=strategy_data["cat_str_id"],
+                    leverage=strategy_data.get("leverage"),
+                    size=strategy_data.get("size"),
+                    size_pct=strategy_data.get("size_pct"),
+                    size_currency=strategy_data.get("size_currency"),
+                    take_profit=strategy_data.get("take_profit"),
+                    trailing_stop=strategy_data.get("trailing_stop"),
+                    timeout=strategy_data.get("timeout"),
                 )
                 created_strategy = await db.strategies.add_bot_strategy(strategy)
                 str_id = created_strategy.str_id if created_strategy else None
 
                 if str_id:
                     # Add feeds using repository pattern if available
-                    for feed_data in bot_config['feeds_data']:
+                    for feed_data in bot_config["feeds_data"]:
                         # Create Feed model instance
                         feed = Feed(
                             symbol_id=symbol_id,
                             str_id=str_id,
-                            period=feed_data['period'],
-                            compression=feed_data['compression'],
-                            order=feed_data['order']
+                            period=feed_data["period"],
+                            compression=feed_data["compression"],
+                            order=feed_data["order"],
                         )
 
                         # Use repository method if available (preferred fullon_orm pattern)
@@ -940,10 +947,12 @@ async def run_examples():
 
     # Import run_all_examples from examples directory
     import sys
+
     sys.path.insert(0, examples_dir)
 
     try:
         import run_all_examples
+
         success = await run_all_examples.run_all(skip_websocket=True)
         return success == 0
     except Exception as e:
@@ -984,17 +993,19 @@ async def main():
     """Main CLI interface"""
     parser = argparse.ArgumentParser(
         description="Demo Data Setup for fullon_master_api Examples",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument('--setup', action='store_true',
-                        help='Create test database and install demo data')
-    parser.add_argument('--cleanup', metavar='DB_NAME',
-                        help='Drop specific test database')
-    parser.add_argument('--run-all', action='store_true',
-                        help='Setup, run all examples, then cleanup')
-    parser.add_argument('--examples-only', action='store_true',
-                        help='Run examples against existing database')
+    parser.add_argument(
+        "--setup", action="store_true", help="Create test database and install demo data"
+    )
+    parser.add_argument("--cleanup", metavar="DB_NAME", help="Drop specific test database")
+    parser.add_argument(
+        "--run-all", action="store_true", help="Setup, run all examples, then cleanup"
+    )
+    parser.add_argument(
+        "--examples-only", action="store_true", help="Run examples against existing database"
+    )
 
     args = parser.parse_args()
 

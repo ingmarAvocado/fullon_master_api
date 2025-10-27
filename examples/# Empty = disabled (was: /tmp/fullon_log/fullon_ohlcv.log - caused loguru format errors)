@@ -1,0 +1,166 @@
+2025-10-27 16:04:31.446 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-27 16:04:31.600 | INFO     | __main__ | 99 | Using existing databases orm_db=fullon_beta1 ohlcv_db=fullon_beta1_ohlcv
+2025-10-27 16:04:31.949 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-27 16:04:32.086 | INFO     | fullon_exchange.queue.exchange_queue | 101 | ✅ Patched asyncio.run() at module import for automatic clean shutdown
+2025-10-27 16:04:32.122 | INFO     | fullon_account_service.daemon | 65 | AccountDaemon initialized
+2025-10-27 16:04:32.125 | INFO     | fullon_master_api.services.health_monitor | 118 | HealthMonitor initialized check_interval_seconds=300 auto_restart_enabled=True cooldown_seconds=300 max_restarts_per_hour=5 services_to_monitor=['ticker', 'ohlcv', 'account']
+2025-10-27 16:04:32.125 | INFO     | fullon_master_api.services.manager | 110 | ServiceManager initialized
+2025-10-27 16:04:32.125 | INFO     | fullon_master_api.gateway | 132 | CORS middleware configured origins=['http://localhost:3000', 'http://localhost:8080']
+2025-10-27 16:04:32.125 | INFO     | fullon_master_api.gateway | 154 | JWT middleware configured
+2025-10-27 16:04:32.212 | INFO     | fullon_master_api.gateway | 205 | Discovered ORM routers count=9
+2025-10-27 16:04:32.213 | INFO     | fullon_master_api.gateway | 291 | Auth overrides applied to ORM routers router_count=9
+2025-10-27 16:04:32.218 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/users tags=['Users'] route_count=11
+2025-10-27 16:04:32.223 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/bots tags=['Bots'] route_count=10
+2025-10-27 16:04:32.228 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/exchanges tags=['Exchanges'] route_count=9
+2025-10-27 16:04:32.232 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/orders tags=['Orders'] route_count=7
+2025-10-27 16:04:32.241 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/trades tags=['Trades'] route_count=15
+2025-10-27 16:04:32.245 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/symbols tags=['Symbols'] route_count=5
+2025-10-27 16:04:32.251 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/strategies tags=['Strategies'] route_count=13
+2025-10-27 16:04:32.261 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/views tags=['Views'] route_count=6
+2025-10-27 16:04:32.277 | INFO     | fullon_master_api.gateway | 382 | ORM router mounted prefix=/api/v1/orm/api_keys tags=['API Keys'] route_count=10
+2025-10-27 16:04:32.278 | INFO     | fullon_master_api.gateway | 389 | All ORM routers mounted total_routers=9 base_prefix=/api/v1/orm
+2025-10-27 16:04:32.319 | INFO     | fullon_master_api.gateway | 353 | Auth overrides applied to OHLCV router route_count=2 overrides=2
+2025-10-27 16:04:32.319 | INFO     | fullon_master_api.gateway | 353 | Auth overrides applied to OHLCV router route_count=2 overrides=2
+2025-10-27 16:04:32.319 | INFO     | fullon_master_api.gateway | 353 | Auth overrides applied to OHLCV router route_count=1 overrides=1
+2025-10-27 16:04:32.319 | INFO     | fullon_master_api.gateway | 353 | Auth overrides applied to OHLCV router route_count=1 overrides=1
+2025-10-27 16:04:32.319 | INFO     | fullon_master_api.gateway | 353 | Auth overrides applied to OHLCV router route_count=4 overrides=4
+2025-10-27 16:04:32.320 | INFO     | fullon_master_api.gateway | 353 | Auth overrides applied to OHLCV router route_count=4 overrides=4
+2025-10-27 16:04:32.320 | INFO     | fullon_master_api.gateway | 250 | OHLCV routers discovered with auth override router_count=6
+2025-10-27 16:04:32.323 | INFO     | fullon_master_api.gateway | 424 | OHLCV router mounted prefix=/api/v1/ohlcv tags=[] route_count=4
+2025-10-27 16:04:32.325 | INFO     | fullon_master_api.gateway | 424 | OHLCV router mounted prefix=/api/v1/ohlcv tags=[] route_count=4
+2025-10-27 16:04:32.325 | INFO     | fullon_master_api.gateway | 424 | OHLCV router mounted prefix=/api/v1/ohlcv tags=[] route_count=1
+2025-10-27 16:04:32.327 | INFO     | fullon_master_api.gateway | 424 | OHLCV router mounted prefix=/api/v1/ohlcv tags=[] route_count=1
+2025-10-27 16:04:32.329 | INFO     | fullon_master_api.gateway | 424 | OHLCV router mounted prefix=/api/v1/ohlcv tags=[] route_count=2
+2025-10-27 16:04:32.331 | INFO     | fullon_master_api.gateway | 424 | OHLCV router mounted prefix=/api/v1/ohlcv tags=[] route_count=2
+2025-10-27 16:04:32.332 | INFO     | fullon_master_api.gateway | 440 | All OHLCV routers mounted total_routers=6 base_prefix=/api/v1/ohlcv
+2025-10-27 16:04:32.365 | INFO     | fullon_cache_api.main | 33 | FastAPI WebSocket app created
+2025-10-27 16:04:32.371 | INFO     | fullon_cache_api.main | 33 | FastAPI WebSocket app created
+2025-10-27 16:04:32.371 | INFO     | fullon_master_api.gateway | 467 | Cache WebSocket routers mounted prefix=/api/v1/cache endpoint_count=8
+2025-10-27 16:04:32.372 | INFO     | fullon_master_api.gateway | 183 | FastAPI application created title=Fullon Master API version=1.0.0
+2025-10-27 16:04:32.372 | INFO     | fullon_master_api.gateway | 63 | Master API Gateway initialized
+2025-10-27 16:04:32.408 | INFO     | fullon_master_api.auth.jwt | 35 | JWT handler initialized algorithm=HS256
+2025-10-27 16:04:32.409 | INFO     | fullon_master_api.auth.middleware | 62 | JWT middleware initialized excluded_paths_count=8
+2025-10-27 16:04:32.409 | INFO     | fullon_master_api.gateway | 69 | Starting up services...
+2025-10-27 16:04:32.416 | INFO     | fullon_account_service.daemon | 65 | AccountDaemon initialized
+2025-10-27 16:04:32.416 | INFO     | fullon_master_api.services.health_monitor | 118 | HealthMonitor initialized check_interval_seconds=300 auto_restart_enabled=True cooldown_seconds=300 max_restarts_per_hour=5 services_to_monitor=['ticker', 'ohlcv', 'account']
+2025-10-27 16:04:32.417 | INFO     | fullon_master_api.services.manager | 110 | ServiceManager initialized
+2025-10-27 16:04:32.425 | INFO     | __main__ | 192 | Attempting login username=admin@fullon
+2025-10-27 16:04:32.430 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=admin@fullon
+2025-10-27 16:04:32.430 | INFO     | fullon_orm.uvloop_integration | 64 | uvloop event loop policy successfully installed
+2025-10-27 16:04:32.767 | INFO     | fullon_master_api.auth.jwt | 277 | Authentication successful username=admin@fullon success=True uid=1
+2025-10-27 16:04:32.769 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=1
+2025-10-27 16:04:32.769 | INFO     | fullon_master_api.routers.auth | 74 | Login successful username=admin@fullon user_id=1
+2025-10-27 16:04:32.771 | INFO     | __main__ | 202 | Login successful token_type=bearer
+2025-10-27 16:04:32.785 | INFO     | fullon_master_api.auth.dependencies | 197 | Admin user authenticated user_id=1 email=admin@fullon
+2025-10-27 16:04:32.786 | INFO     | fullon_master_api.services.manager | 134 | ServiceName.OHLCV service started
+2025-10-27 16:04:32.786 | INFO     | fullon_master_api.routers.services | 43 | Service started by admin service=ServiceName.OHLCV user_id=1
+2025-10-27 16:04:32.786 | INFO     | fullon_ohlcv_service.daemon | 68 | Starting OHLCV Service Daemon
+2025-10-27 16:04:32.789 | INFO     | fullon_ohlcv_service.daemon | 78 | Loaded symbols from database symbol_count=1
+2025-10-27 16:04:32.789 | INFO     | fullon_ohlcv_service.utils.add_symbols | 64 | Starting initialization of all symbols 
+2025-10-27 16:04:32.790 | INFO     | fullon_ohlcv_service.utils.add_symbols | 75 | Found 1 symbols to initialize
+2025-10-27 16:04:32.790 | INFO     | fullon_ohlcv_service.utils.add_symbols | 31 | Initializing symbol hyperliquid:BTC/USDC:USDC'
+2025-10-27 16:04:32.793 | INFO     | __main__ | 235 | OHLCV service started successfully
+2025-10-27 16:04:32.831 | INFO     | fullon_ohlcv_service.utils.add_symbols | 37 | Successfully initialized symbol hyperliquid:BTC/USDC:USDC
+2025-10-27 16:04:32.832 | INFO     | fullon_ohlcv_service.utils.add_symbols | 97 | Symbol initialization complete: 1/1 successful
+2025-10-27 16:04:32.832 | INFO     | fullon_cache.event_loop | 134 | Event loop configured: uvloop
+2025-10-27 16:04:32.832 | INFO     | fullon_cache.connection | 121 | uvloop configured for optimal Redis performance
+2025-10-27 16:04:32.839 | INFO     | fullon_ohlcv_service.daemon | 95 | Phase 1: Starting historic data collection (REST)
+2025-10-27 16:04:32.839 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 72 | Starting historical OHLCV collection
+2025-10-27 16:04:32.840 | INFO     | fullon_ohlcv_service.trade.historic_collector | 73 | Starting historical trade collection
+2025-10-27 16:04:32.844 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 169 | Loaded data symbol_count=1 exchange_count=1
+2025-10-27 16:04:32.844 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 189 | Starting historical collection for exchange exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:32.844 | INFO     | fullon_exchange.queue.exchange_queue | 423 | ExchangeQueue factory initialized with auto-shutdown
+2025-10-27 16:04:33.195 | INFO     | fullon_exchange.rest.base_interface | 79 | Initialized hyperliquid REST base interface
+2025-10-27 16:04:33.195 | INFO     | fullon_exchange.rest.exposed_interface | 67 | Initialized hyperliquid exposed REST interface
+2025-10-27 16:04:33.195 | INFO     | hyperliquid_rest_adapter | 56 | Initialized Hyperliquid REST adapter with fullon_orm support
+2025-10-27 16:04:33.195 | INFO     | fullon_exchange.rest.interface | 111 | Created REST handler for hyperliquid
+2025-10-27 16:04:33.196 | INFO     | fullon_exchange.queue.exchange_queue | 594 | Connecting REST handler for hyperliquid...
+2025-10-27 16:04:33.196 | INFO     | fullon_exchange.rest.base_interface | 324 | Connecting to exchange
+2025-10-27 16:04:35.618 | INFO     | fullon_exchange.rest.base_interface | 389 | Loaded 448 markets
+2025-10-27 16:04:35.619 | INFO     | fullon_exchange.rest.base_interface | 336 | Successfully connected to exchange
+2025-10-27 16:04:35.620 | INFO     | fullon_exchange.queue.exchange_queue | 596 | Connected REST handler for hyperliquid
+2025-10-27 16:04:35.620 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 215 | Exchange supports native OHLCV - proceeding with collection exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:35.624 | INFO     | fullon_ohlcv_service.trade.historic_collector | 169 | Loaded data symbol_count=1 exchange_count=1
+2025-10-27 16:04:35.625 | INFO     | fullon_ohlcv_service.trade.historic_collector | 190 | Starting historical collection for exchange exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:35.625 | INFO     | fullon_ohlcv_service.trade.historic_collector | 215 | Exchange has native OHLCV support - skipping trade collection exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:37.225 | INFO     | fullon_ohlcv_service.trade.historic_collector | 115 | Historical collection completed total_symbols=0 total_trades=0
+2025-10-27 16:04:37.249 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 352 | Retrieved 1000 candles for BTC/USDC:USDC:hyperliquid from 2025-10-24 16:04:35 to 2025-10-25 08:44:00. 199236 seconds (2.3 days) left
+2025-10-27 16:04:40.142 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 352 | Retrieved 1000 candles for BTC/USDC:USDC:hyperliquid from 2025-10-25 08:44:01 to 2025-10-26 01:24:00. 139236 seconds (1.6 days) left
+2025-10-27 16:04:41.096 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 352 | Retrieved 1000 candles for BTC/USDC:USDC:hyperliquid from 2025-10-26 01:24:01 to 2025-10-26 18:04:00. 79236 seconds (22.0 hours) left
+2025-10-27 16:04:41.873 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 352 | Retrieved 1000 candles for BTC/USDC:USDC:hyperliquid from 2025-10-26 18:04:01 to 2025-10-27 10:44:00. 19236 seconds (5.3 hours) left
+2025-10-27 16:04:42.229 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 352 | Retrieved 319 candles for BTC/USDC:USDC:hyperliquid from 2025-10-27 10:44:01 to 2025-10-27 16:03:00. 96 seconds (1.6 minutes) left
+2025-10-27 16:04:42.597 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 241 | Historical collection completed for symbol symbol=hyperliquid:BTC/USDC:USDC candles_collected=4319
+2025-10-27 16:04:42.598 | INFO     | fullon_ohlcv_service.ohlcv.historic_collector | 114 | Historical collection completed total_symbols=1 total_candles=4319
+2025-10-27 16:04:42.598 | INFO     | fullon_ohlcv_service.daemon | 100 | Phase 1: Historic collection completed
+2025-10-27 16:04:42.599 | INFO     | fullon_ohlcv_service.daemon | 109 | Phase 2: Starting live data streaming (WebSocket)
+2025-10-27 16:04:42.599 | INFO     | fullon_ohlcv_service.ohlcv.live_collector | 46 | Starting live OHLCV collection
+2025-10-27 16:04:42.599 | INFO     | fullon_ohlcv_service.trade.live_collector | 47 | Starting live trade collection
+2025-10-27 16:04:42.603 | INFO     | fullon_ohlcv_service.ohlcv.live_collector | 86 | Loaded data symbol_count=1 exchange_count=1
+2025-10-27 16:04:42.603 | INFO     | fullon_ohlcv_service.ohlcv.live_collector | 107 | Starting WebSocket for exchange exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:44.242 | INFO     | fullon_exchange.websocket.base_interface | 86 | Initialized hyperliquid WebSocket base interface
+2025-10-27 16:04:44.242 | INFO     | fullon_exchange.websocket.exposed_interface | 136 | Initialized hyperliquid exposed WebSocket interface
+2025-10-27 16:04:44.242 | INFO     | fullon_exchange.websocket.interface | 111 | Created WebSocket handler for hyperliquid
+2025-10-27 16:04:44.243 | INFO     | fullon_exchange.queue.exchange_queue | 720 | Connecting WebSocket handler for hyperliquid...
+2025-10-27 16:04:44.243 | INFO     | fullon_exchange.websocket.base_interface | 359 | Connecting WebSocket to exchange
+2025-10-27 16:04:44.243 | INFO     | fullon_exchange.websocket.base_interface | 249 | 🌍 Direct connection - no proxy environment variables found
+2025-10-27 16:04:44.364 | INFO     | fullon_ohlcv_service.trade.live_collector | 94 | Loaded data symbol_count=1 exchange_count=1
+2025-10-27 16:04:44.364 | INFO     | fullon_ohlcv_service.trade.live_collector | 115 | Starting WebSocket for exchange exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:47.862 | INFO     | fullon_exchange.websocket.base_interface | 452 | WebSocket connection validated successfully
+2025-10-27 16:04:47.863 | INFO     | fullon_exchange.websocket.base_interface | 729 | Detected WebSocket capabilities: {{'ticker': True, 'trades': True, 'order_book': True, 'balance': False, 'orders': True, 'positions': True, 'ohlcv': True, 'my_trades': True}}
+2025-10-27 16:04:47.863 | INFO     | fullon_exchange.websocket.base_interface | 377 | WebSocket connected successfully in 3.62s. Capabilities: {{'ticker': True, 'trades': True, 'order_book': True, 'balance': False, 'orders': True, 'positions': True, 'ohlcv': True, 'my_trades': True}}
+2025-10-27 16:04:47.863 | INFO     | fullon_exchange.queue.exchange_queue | 722 | Connected WebSocket handler for hyperliquid
+2025-10-27 16:04:47.863 | INFO     | fullon_ohlcv_service.ohlcv.live_collector | 132 | Exchange supports native OHLCV - proceeding with subscription exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:47.872 | INFO     | fullon_exchange.websocket.exposed_interface | 608 | Started OHLCV subscription for BTC/USDC:USDC (1m)
+2025-10-27 16:04:47.872 | INFO     | hyperliquid_websocket | 136 | Created subscription: subscribe_ohlcv (1761581087.8725736)
+2025-10-27 16:04:47.872 | INFO     | fullon_ohlcv_service.ohlcv.live_collector | 166 | Subscription result exchange=hyperliquid symbol=BTC/USDC:USDC success=True
+2025-10-27 16:04:47.872 | INFO     | fullon_ohlcv_service.ohlcv.live_collector | 183 | Finished subscribing to OHLCV exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:47.873 | INFO     | fullon_exchange.websocket.exposed_interface | 420 | Started trades subscription for BTC/USDC:USDC
+2025-10-27 16:04:47.874 | INFO     | hyperliquid_websocket | 136 | Created subscription: subscribe_trades (1761581087.8740911)
+2025-10-27 16:04:47.874 | INFO     | fullon_ohlcv_service.trade.live_collector | 154 | Subscription result exchange=hyperliquid symbol=BTC/USDC:USDC success=True
+2025-10-27 16:04:47.874 | INFO     | fullon_ohlcv_service.trade.batcher | 52 | GlobalTradeBatcher initialized
+2025-10-27 16:04:47.874 | INFO     | fullon_ohlcv_service.trade.batcher | 105 | Batch processing started
+2025-10-27 16:04:47.874 | INFO     | fullon_ohlcv_service.trade.live_collector | 173 | Finished subscribing to trades exchange=hyperliquid symbol_count=1
+2025-10-27 16:04:47.875 | INFO     | fullon_ohlcv_service.daemon | 222 | Starting daemon cleanup
+2025-10-27 16:04:47.875 | INFO     | fullon_ohlcv_service.trade.live_collector | 75 | Stopping live trade collection
+2025-10-27 16:04:47.875 | INFO     | fullon_ohlcv_service.trade.batcher | 87 | Symbol unregistered from batch processing exchange=hyperliquid symbol=BTC/USDC:USDC remaining_symbols=0
+2025-10-27 16:04:47.875 | INFO     | fullon_ohlcv_service.trade.batcher | 116 | Batch processing stopped
+2025-10-27 16:04:47.882 | INFO     | fullon_ohlcv_service.daemon | 244 | Daemon cleanup completed successfully
+2025-10-27 16:04:59.337 | INFO     | fullon_account_service.daemon | 65 | AccountDaemon initialized
+2025-10-27 16:04:59.338 | INFO     | fullon_master_api.services.health_monitor | 118 | HealthMonitor initialized check_interval_seconds=300 auto_restart_enabled=True cooldown_seconds=300 max_restarts_per_hour=5 services_to_monitor=['ticker', 'ohlcv', 'account']
+2025-10-27 16:04:59.338 | INFO     | fullon_master_api.services.manager | 110 | ServiceManager initialized
+2025-10-27 16:04:59.358 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=admin@fullon
+2025-10-27 16:04:59.600 | INFO     | fullon_master_api.auth.jwt | 277 | Authentication successful username=admin@fullon success=True uid=1
+2025-10-27 16:04:59.602 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=1
+2025-10-27 16:04:59.602 | INFO     | fullon_master_api.routers.auth | 74 | Login successful username=admin@fullon user_id=1
+2025-10-27 16:04:59.619 | INFO     | fullon_ohlcv_api.routers.candles | 201 | Getting recent candles exchange=hyperliquid symbol=BTC/USDC:USDC timeframe=1d compression=1 period=days limit=100
+2025-10-27 16:04:59.636 | INFO     | fullon_ohlcv.repositories.ohlcv.timeseries_repository | 117 | Initialized with continuous aggregate view: hyperliquid.btc_usdc_usdc_candles1m_view
+2025-10-27 16:04:59.647 | INFO     | fullon_ohlcv.repositories.ohlcv.timeseries_repository | 159 | Switched to fallback source: hyperliquid.btc_usdc_usdc_candles1m (type: candles_fallback)
+2025-10-27 16:04:59.661 | INFO     | fullon_ohlcv_api.routers.candles | 254 | Retrieved recent candles exchange=hyperliquid symbol=BTC/USDC:USDC timeframe=1d count=4
+2025-10-27 16:05:02.493 | INFO     | fullon_account_service.daemon | 65 | AccountDaemon initialized
+2025-10-27 16:05:02.493 | INFO     | fullon_master_api.services.health_monitor | 118 | HealthMonitor initialized check_interval_seconds=300 auto_restart_enabled=True cooldown_seconds=300 max_restarts_per_hour=5 services_to_monitor=['ticker', 'ohlcv', 'account']
+2025-10-27 16:05:02.493 | INFO     | fullon_master_api.services.manager | 110 | ServiceManager initialized
+2025-10-27 16:05:02.505 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=admin@fullon
+2025-10-27 16:05:02.797 | INFO     | fullon_master_api.auth.jwt | 277 | Authentication successful username=admin@fullon success=True uid=1
+2025-10-27 16:05:02.798 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=1
+2025-10-27 16:05:02.799 | INFO     | fullon_master_api.routers.auth | 74 | Login successful username=admin@fullon user_id=1
+2025-10-27 16:05:02.810 | INFO     | fullon_ohlcv_api.routers.candles | 201 | Getting recent candles exchange=hyperliquid symbol=BTC/USDC:USDC timeframe=1d compression=1 period=days limit=100
+2025-10-27 16:05:02.821 | INFO     | fullon_ohlcv.repositories.ohlcv.timeseries_repository | 117 | Initialized with continuous aggregate view: hyperliquid.btc_usdc_usdc_candles1m_view
+2025-10-27 16:05:02.832 | INFO     | fullon_ohlcv.repositories.ohlcv.timeseries_repository | 159 | Switched to fallback source: hyperliquid.btc_usdc_usdc_candles1m (type: candles_fallback)
+2025-10-27 16:05:02.844 | INFO     | fullon_ohlcv_api.routers.candles | 254 | Retrieved recent candles exchange=hyperliquid symbol=BTC/USDC:USDC timeframe=1d count=4
+2025-10-27 16:05:10.449 | INFO     | fullon_account_service.daemon | 65 | AccountDaemon initialized
+2025-10-27 16:05:10.449 | INFO     | fullon_master_api.services.health_monitor | 118 | HealthMonitor initialized check_interval_seconds=300 auto_restart_enabled=True cooldown_seconds=300 max_restarts_per_hour=5 services_to_monitor=['ticker', 'ohlcv', 'account']
+2025-10-27 16:05:10.449 | INFO     | fullon_master_api.services.manager | 110 | ServiceManager initialized
+2025-10-27 16:05:10.460 | INFO     | fullon_master_api.routers.auth | 49 | Login attempt username=admin@fullon
+2025-10-27 16:05:10.738 | INFO     | fullon_master_api.auth.jwt | 277 | Authentication successful username=admin@fullon success=True uid=1
+2025-10-27 16:05:10.739 | INFO     | fullon_master_api.auth.jwt | 60 | JWT token generated user_id=1
+2025-10-27 16:05:10.739 | INFO     | fullon_master_api.routers.auth | 74 | Login successful username=admin@fullon user_id=1
+2025-10-27 16:05:10.750 | INFO     | fullon_ohlcv_api.routers.candles | 201 | Getting recent candles exchange=hyperliquid symbol=BTC/USDC:USDC timeframe=1d compression=1 period=days limit=100
+2025-10-27 16:05:10.764 | INFO     | fullon_ohlcv.repositories.ohlcv.timeseries_repository | 117 | Initialized with continuous aggregate view: hyperliquid.btc_usdc_usdc_candles1m_view
+2025-10-27 16:05:10.774 | INFO     | fullon_ohlcv.repositories.ohlcv.timeseries_repository | 159 | Switched to fallback source: hyperliquid.btc_usdc_usdc_candles1m (type: candles_fallback)
+2025-10-27 16:05:10.786 | INFO     | fullon_ohlcv_api.routers.candles | 254 | Retrieved recent candles exchange=hyperliquid symbol=BTC/USDC:USDC timeframe=1d count=4
+2025-10-27 16:05:16.657 | INFO     | fullon_master_api.gateway | 92 | Shutting down services...
+2025-10-27 16:05:16.657 | INFO     | fullon_ohlcv_service.daemon | 222 | Starting daemon cleanup
+2025-10-27 16:05:16.657 | INFO     | fullon_ohlcv_service.trade.live_collector | 75 | Stopping live trade collection
+2025-10-27 16:05:16.661 | INFO     | fullon_ohlcv_service.daemon | 244 | Daemon cleanup completed successfully
+2025-10-27 16:05:16.661 | INFO     | fullon_master_api.services.manager | 173 | ServiceName.OHLCV service stopped
+2025-10-27 16:05:16.661 | INFO     | fullon_master_api.gateway | 104 | All services stopped

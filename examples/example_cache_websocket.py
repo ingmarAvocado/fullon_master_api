@@ -39,35 +39,47 @@ import os
 import sys
 from pathlib import Path
 
-# 2. Third-party imports (non-fullon packages)
-import websockets
+# 2. Load .env file FIRST before ANY other imports (critical for env var caching)
+project_root = Path(__file__).parent.parent
+try:
+    from dotenv import load_dotenv
 
-# 3. Generate test database names FIRST (before .env and imports)
+    load_dotenv(project_root / ".env", override=True)  # Load .env first
+except ImportError:
+    print("⚠️  python-dotenv not available, make sure .env variables are set manually")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
+
+
+# 3. Generate test database names
 def generate_test_db_name() -> str:
     """Generate unique test database name."""
     import random, string
-    return "fullon2_test_" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    return "fullon2_test_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
 
 test_db_base = generate_test_db_name()
 test_db_orm = test_db_base
 test_db_ohlcv = f"{test_db_base}_ohlcv"
 
-# 4. Set ALL database environment variables BEFORE loading .env
+# 4. Override database environment variables AFTER loading .env (so they take precedence)
 os.environ["DB_NAME"] = test_db_orm
 os.environ["DB_OHLCV_NAME"] = test_db_ohlcv
+# CRITICAL: Also override DB_TEST_NAME to prevent test mode from using wrong database
 os.environ["DB_TEST_NAME"] = test_db_orm
 
-# 5. NOW load .env file
-project_root = Path(__file__).parent.parent
-try:
-    from dotenv import load_dotenv
-    load_dotenv(project_root / ".env", override=False)
-except: pass
+# Disable service auto-start for examples (we only need the API, not background services)
+os.environ["SERVICE_AUTO_START_ENABLED"] = "false"
+os.environ["HEALTH_MONITOR_ENABLED"] = "false"
 
-# 6. Add parent directory to path
+# 5. Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# 7. NOW safe to import ALL fullon modules
+# 6. Third-party imports (non-fullon packages)
+import websockets
+
+# 7. NOW safe to import ALL fullon modules (env vars set, .env loaded)
 from demo_data import create_dual_test_databases, drop_dual_test_databases, install_demo_data
 from fullon_log import get_component_logger
 from fullon_master_api.auth.jwt import JWTHandler
@@ -82,14 +94,47 @@ WS_BASE_URL = "ws://localhost:8000/api/v1/cache"
 # JWT Handler for authentication
 jwt_handler = JWTHandler(settings.jwt_secret_key)
 
+
 async def start_test_server():
     """Start uvicorn server as async background task."""
     import uvicorn
     from fullon_master_api.main import app
+
     config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="error")
     server = uvicorn.Server(config)
     task = asyncio.create_task(server.serve())
     return server, task
+
+
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    import httpx
+
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
 
 
 import argparse
@@ -364,8 +409,6 @@ async def demonstrate_auth_failure(exchange: str = "kraken", symbol: str = "BTC/
     print("-" * 60)
 
 
-
-
 async def setup_test_environment():
     """Setup test databases with demo data."""
     print("\n" + "=" * 60)
@@ -383,6 +426,7 @@ async def setup_test_environment():
     print("\n" + "=" * 60)
     print("✅ Test environment ready!")
     print("=" * 60)
+
 
 async def run_websocket_examples(
     stream_type: str = "tickers",
@@ -427,6 +471,7 @@ async def run_websocket_examples(
     print("   - Use --auth-demo to see authentication failure examples")
     print("=" * 60)
 
+
 async def main(
     stream_type: str = "tickers",
     exchange: str = "kraken",
@@ -450,15 +495,22 @@ async def main(
         # Start embedded test server
         print("\n4. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server("http://localhost:8000", timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run WebSocket examples
-        await run_websocket_examples(stream_type, exchange, symbol, exchange_id, duration, show_auth_demo)
+        await run_websocket_examples(
+            stream_type, exchange, symbol, exchange_id, duration, show_auth_demo
+        )
 
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 
@@ -488,6 +540,7 @@ async def main(
             logger.warning("Cleanup error", error=str(cleanup_error))
 
     print("=" * 60)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cache WebSocket Streaming Example")

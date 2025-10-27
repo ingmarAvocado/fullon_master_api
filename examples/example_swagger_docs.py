@@ -26,9 +26,31 @@ Expected Output:
 """
 import asyncio
 import httpx
+import os
+import sys
 import webbrowser
 import argparse
+from pathlib import Path
 from typing import Optional
+
+# Load .env file FIRST before ANY other imports (critical for env var caching)
+project_root = Path(__file__).parent.parent
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(project_root / ".env", override=True)  # Load .env first
+except ImportError:
+    print("⚠️  python-dotenv not available, make sure .env variables are set manually")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
+
+# Disable service auto-start for examples (we only need the API, not background services)
+os.environ["SERVICE_AUTO_START_ENABLED"] = "false"
+os.environ["HEALTH_MONITOR_ENABLED"] = "false"
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from fullon_log import get_component_logger
 
 logger = get_component_logger("fullon.examples.swagger_docs")
@@ -46,6 +68,35 @@ async def start_test_server():
     task = asyncio.create_task(server.serve())
 
     return server, task
+
+
+async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) -> bool:
+    """
+    Poll server health endpoint until ready or timeout.
+
+    Args:
+        url: Base URL of the server (e.g., "http://localhost:8000")
+        timeout: Maximum seconds to wait for server
+        interval: Seconds between polling attempts
+
+    Returns:
+        True if server is ready, False if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient() as client:
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            try:
+                response = await client.get(f"{url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    return True
+            except (httpx.ConnectError, httpx.TimeoutException):
+                # Server not ready yet, continue polling
+                pass
+
+            await asyncio.sleep(interval)
+
+    return False
 
 
 async def get_openapi_schema() -> Optional[dict]:
@@ -234,7 +285,11 @@ async def main(open_browser_flag: bool = False):
         # Start embedded test server
         print("\n1. Starting test server on localhost:8000...")
         server, server_task = await start_test_server()
-        await asyncio.sleep(2)  # Wait for server to start
+
+        # Wait for server to be ready (polls health endpoint)
+        if not await wait_for_server(API_BASE_URL, timeout=10):
+            raise RuntimeError("Server failed to start within 10 seconds")
+
         print("   ✅ Server started")
 
         # Run examples
@@ -246,6 +301,7 @@ async def main(open_browser_flag: bool = False):
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
         import traceback
+
         traceback.print_exc()
         logger.error("Example failed", error=str(e))
 

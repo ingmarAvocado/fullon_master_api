@@ -12,6 +12,27 @@ from fullon_log import get_component_logger
 logger = get_component_logger("fullon.master_api.services")
 
 
+class OhlcvDaemonAdapter:
+    """
+    Adapter to make OhlcvServiceDaemon compatible with ServiceManager interface.
+
+    OhlcvServiceDaemon uses .run() instead of .start() and .cleanup() instead of .stop()
+    """
+
+    def __init__(self, daemon):
+        """Initialize adapter with OhlcvServiceDaemon instance."""
+        self._daemon = daemon
+
+    async def start(self):
+        """Adapt .run() to .start() interface."""
+        await self._daemon.run()
+
+    async def stop(self):
+        """Adapt .cleanup() to .stop() interface."""
+        if hasattr(self._daemon, 'cleanup'):
+            await self._daemon.cleanup()
+
+
 class ServiceName(str, Enum):
     """Enumeration of available services."""
 
@@ -40,12 +61,12 @@ class ServiceManager:
         # Import service daemons as libraries
         try:
             from fullon_account_service import AccountDaemon
-            from fullon_ohlcv_service import OhlcvDaemon
+            from fullon_ohlcv_service.daemon import OhlcvServiceDaemon
             from fullon_ticker_service import TickerDaemon
 
             self.daemons = {
                 ServiceName.TICKER: TickerDaemon(),
-                ServiceName.OHLCV: OhlcvDaemon(),
+                ServiceName.OHLCV: OhlcvDaemonAdapter(OhlcvServiceDaemon()),
                 ServiceName.ACCOUNT: AccountDaemon(),
             }
         except ImportError as e:
