@@ -87,18 +87,18 @@ class TestHealthMonitor:
         # Verify service restart was called
         mock_service_manager.restart_service.assert_called_once_with("ticker")
 
-        # Verify result structure
-        assert "timestamp" in result
-        assert "checks_performed" in result
-        assert "issues_found" in result
-        assert "recovery_actions" in result
-        assert "overall_status" in result
-        assert "metrics" in result
+        # Verify result structure (HealthCheckResult is a dataclass)
+        assert hasattr(result, "timestamp")
+        assert hasattr(result, "checks_performed")
+        assert hasattr(result, "issues_found")
+        assert hasattr(result, "recovery_actions")
+        assert hasattr(result, "overall_status")
+        assert hasattr(result, "metrics")
 
         # Verify issues and recoveries
-        assert len(result["issues_found"]) > 0
-        assert len(result["recovery_actions"]) > 0
-        assert result["overall_status"] == "recovering"
+        assert len(result.issues_found) > 0
+        assert len(result.recovery_actions) > 0
+        assert result.overall_status == "recovering"
 
     @pytest.mark.asyncio
     async def test_get_health_status(self, health_monitor):
@@ -163,7 +163,7 @@ class TestHealthMonitor:
     @pytest.mark.asyncio
     async def test_process_cache_health_check(self, health_monitor):
         """Test ProcessCache health checking."""
-        with patch("fullon_master_api.services.health_monitor.ProcessCache") as mock_cache:
+        with patch("fullon_cache.ProcessCache") as mock_cache:
             # Setup mock
             mock_cache.return_value.__aenter__.return_value.get_system_health = AsyncMock(
                 return_value={"healthy": True, "total_processes": 5}
@@ -175,16 +175,16 @@ class TestHealthMonitor:
             # Perform health check
             result = await health_monitor.perform_health_check_and_recovery()
 
-            # Verify ProcessCache was called
-            assert "process_cache" in result["checks_performed"]
+            # Verify ProcessCache was called (HealthCheckResult is a dataclass)
+            assert "process_cache" in result.checks_performed
 
     @pytest.mark.asyncio
     async def test_database_health_check(self, health_monitor):
         """Test database connectivity health check."""
         result = await health_monitor.perform_health_check_and_recovery()
 
-        # Database check should be performed
-        assert "database" in result["checks_performed"]
+        # Database check should be performed (HealthCheckResult is a dataclass)
+        assert "database" in result.checks_performed
 
     @pytest.mark.asyncio
     async def test_action_history_tracking(self, health_monitor):
