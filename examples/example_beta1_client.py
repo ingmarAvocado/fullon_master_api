@@ -2,19 +2,26 @@
 """
 Example Beta1 Client: OHLCV Data Query Client
 
-Queries OHLCV data from the running Fullon Master API server.
+Queries OHLCV data from the running Fullon Master API server using API key authentication.
 
 Assumes example_beta1_server.py is already running on http://localhost:8000
 
 Features:
-- Authenticates with admin credentials
+- Authenticates with API key (no password required)
 - Queries OHLCV candles for specified symbol and timeframe
 - Displays candles in a formatted table
 - Supports multiple timeframes (1m, 5m, 15m, 1h, 4h, 1d, etc.)
 
 Usage:
-    # Get daily candles (default)
+    # Get daily candles (default) - uses API key from .beta1_api_key file
     python examples/example_beta1_client.py
+
+    # Provide API key via environment variable
+    export FULLON_API_KEY=your_api_key_here
+    python examples/example_beta1_client.py
+
+    # Provide API key via command line
+    python examples/example_beta1_client.py --api-key your_api_key_here
 
     # Get 1-hour candles
     python examples/example_beta1_client.py --timeframe 1h
@@ -26,13 +33,15 @@ Usage:
     python examples/example_beta1_client.py --symbol ETH/USDC:USDC --timeframe 1d
 
 Prerequisites:
-    1. Start the server first: python examples/example_beta1_server.py
-    2. Wait for "SERVER RUNNING" message
-    3. Run this client
+    1. Setup database with demo data: python examples/demo_data_beta1.py --setup fullon_beta1
+    2. Start the server: python examples/example_beta1_server.py
+    3. Wait for "SERVER RUNNING" message
+    4. Run this client (API key will be read from .beta1_api_key file)
 """
 
 import argparse
 import asyncio
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -63,46 +72,44 @@ async def check_server_running(url: str = API_BASE_URL, timeout: float = 2.0) ->
             return False
 
 
-async def login(username: str, password: str, base_url: str = API_BASE_URL) -> str | None:
+def get_api_key(args_api_key: str | None = None) -> str | None:
     """
-    Authenticate user and get JWT token.
+    Get API key from command line, environment variable, or .beta1_api_key file.
+
+    Priority:
+        1. Command line argument (--api-key)
+        2. Environment variable (FULLON_API_KEY)
+        3. File (.beta1_api_key in examples directory)
 
     Args:
-        username: User's username/email
-        password: User's password
-        base_url: API base URL
+        args_api_key: API key from command line argument
 
     Returns:
-        str: JWT access token
-        None: If login failed
+        str: API key if found
+        None: If no API key found
     """
-    login_url = f"{base_url}/api/v1/auth/login"
+    # Priority 1: Command line argument
+    if args_api_key:
+        return args_api_key
 
-    # Login payload (form-data for OAuth2 compatibility)
-    login_data = {
-        "username": username,
-        "password": password,
-    }
+    # Priority 2: Environment variable
+    env_key = os.getenv("FULLON_API_KEY")
+    if env_key:
+        return env_key
 
-    async with httpx.AsyncClient() as client:
+    # Priority 3: File
+    api_key_file = Path(__file__).parent / ".beta1_api_key"
+    if api_key_file.exists():
         try:
-            response = await client.post(
-                login_url,
-                data=login_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            response.raise_for_status()
-
-            token_data = response.json()
-            return token_data["access_token"]
-
+            return api_key_file.read_text().strip()
         except Exception as e:
-            print(f"❌ Login failed: {e}")
-            return None
+            print(f"⚠️  Could not read API key from {api_key_file}: {e}")
+
+    return None
 
 
 async def get_ohlcv_candles(
-    token: str,
+    api_key: str,
     exchange: str,
     symbol: str,
     timeframe: str,
@@ -110,12 +117,12 @@ async def get_ohlcv_candles(
     base_url: str = API_BASE_URL,
 ) -> list:
     """
-    Get OHLCV candles from the API.
+    Get OHLCV candles from the API using API key authentication.
 
     Args:
-        token: JWT access token
-        exchange: Exchange name (e.g., "hyperliquid")
-        symbol: Trading pair symbol (e.g., "BTC/USDC:USDC")
+        api_key: API key for authentication
+        exchange: Exchange name (e.g., "bitmex")
+        symbol: Trading pair symbol (e.g., "BTC/USD:BTC")
         timeframe: Timeframe (e.g., "1m", "1h", "1d")
         limit: Maximum number of candles to retrieve
         base_url: API base URL
@@ -127,7 +134,7 @@ async def get_ohlcv_candles(
     encoded_symbol = quote(symbol, safe="")
     url = f"{base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/{timeframe}"
 
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"X-API-Key": api_key}
     params = {"limit": limit}
 
     async with httpx.AsyncClient() as client:
@@ -222,13 +229,13 @@ Examples:
 
     parser.add_argument(
         "--exchange",
-        default="hyperliquid",
-        help="Exchange name (default: hyperliquid)",
+        default="bitmex",
+        help="Exchange name (default: bitmex)",
     )
     parser.add_argument(
         "--symbol",
-        default="BTC/USDC:USDC",
-        help="Trading pair symbol (default: BTC/USDC:USDC)",
+        default="BTC/USD:BTC",
+        help="Trading pair symbol (default: BTC/USD:BTC)",
     )
     parser.add_argument(
         "--timeframe",
@@ -242,21 +249,32 @@ Examples:
         help="Maximum number of candles to retrieve (default: 100)",
     )
     parser.add_argument(
-        "--username",
-        default="admin@fullon",
-        help="Username for authentication (default: admin@fullon)",
-    )
-    parser.add_argument(
-        "--password",
-        default="password",
-        help="Password for authentication (default: password)",
+        "--api-key",
+        dest="api_key",
+        help="API key for authentication (default: read from .beta1_api_key file or FULLON_API_KEY env var)",
     )
 
     args = parser.parse_args()
 
     print("=" * 60)
     print("Fullon Master API - OHLCV Data Query Client")
+    print("API Key Authentication")
     print("=" * 60)
+
+    # Get API key
+    print("\n🔑 Getting API key...")
+    api_key = get_api_key(args.api_key)
+    if not api_key:
+        print("❌ No API key found")
+        print("\n💡 Provide API key via:")
+        print("   1. Command line: --api-key YOUR_KEY")
+        print("   2. Environment: export FULLON_API_KEY=YOUR_KEY")
+        print("   3. File: examples/.beta1_api_key")
+        print("\n💡 To create a new API key:")
+        print("   python examples/demo_data_beta1.py --setup fullon_beta1")
+        sys.exit(1)
+
+    print(f"   ✅ API key found: {api_key[:20]}...")
 
     # Check if server is running
     print(f"\n🔍 Checking if server is running at {API_BASE_URL}...")
@@ -268,19 +286,10 @@ Examples:
 
     print("   ✅ Server is running")
 
-    # Login
-    print(f"\n🔐 Authenticating as {args.username}...")
-    token = await login(args.username, args.password)
-    if not token:
-        print("❌ Authentication failed")
-        sys.exit(1)
-
-    print("   ✅ Authentication successful")
-
     # Get OHLCV candles
     print(f"\n📊 Fetching {args.timeframe} candles for {args.symbol} ({args.exchange})...")
     candles = await get_ohlcv_candles(
-        token=token,
+        api_key=api_key,
         exchange=args.exchange,
         symbol=args.symbol,
         timeframe=args.timeframe,

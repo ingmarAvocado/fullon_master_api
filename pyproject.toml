@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fullon-master-api"
-version = "1.1.0"
+version = "1.2.0"
 description = "Unified API Gateway for Fullon Trading Platform"
 authors = ["Fullon Team"]
 readme = "README.md"
@@ -24,15 +24,15 @@ fullon-credentials = {git = "ssh://git@github.com/ingmarAvocado/fullon_credentia
 fullon-exchange = {git = "ssh://git@github.com/ingmarAvocado/fullon_exchange.git", branch = "main"}
 
 # Fullon APIs (router composition)
-fullon-orm-api = {path = "../fullon_orm_api", develop = true}
-fullon-ohlcv-api = {path = "../fullon_ohlcv_api", develop = true}
-fullon-cache-api = {path = "../fullon_cache_api", develop = true}
 
 # Password hashing
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 fullon-ticker-service = {git = "ssh://git@github.com/ingmarAvocado/fullon_ticker_service.git", rev = "main"}
 fullon-account-service = {git = "ssh://git@github.com/ingmarAvocado/fullon_account_service.git", rev = "main"}
 fullon-ohlcv-service = {git = "ssh://git@github.com/ingmarAvocado/fullon_ohlcv_service.git", rev = "main"}
+fullon-orm-api = {git = "ssh://git@github.com/ingmarAvocado/fullon_orm_api.git", rev = "main"}
+fullon-ohlcv-api = {git = "ssh://git@github.com/ingmarAvocado/fullon_ohlcv_api.git", rev = "main"}
+fullon-cache-api = {git = "ssh://git@github.com/ingmarAvocado/fullon_cache_api.git", rev = "main"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

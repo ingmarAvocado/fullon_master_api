@@ -146,11 +146,11 @@ class TestApiKeyAuthIntegration:
         assert response.status_code == 401
 
     def test_api_key_authentication_invalid_key(self, client):
-        """Test API key authentication with invalid key."""
-        # Make request with invalid API key
+        """Test API key authentication with invalid key (not in database)."""
+        # Make request with API key that's not in database
         response = client.get(
             "/api/v1/orm/users/me",
-            headers={"X-API-Key": "invalid_key_without_prefix"}
+            headers={"X-API-Key": "nonexistent_key_not_in_database_12345"}
         )
 
         # Should be rejected with 401
@@ -251,10 +251,9 @@ class TestApiKeyAuthIntegration:
     def test_invalid_api_key_format_rejected(self, client):
         """Test various invalid API key formats are rejected."""
         invalid_keys = [
-            "missing_prefix_key",
-            "fullon_ak_",  # Too short
+            "short",  # Too short (< 10 chars)
+            "tiny",  # Too short
             "",  # Empty
-            "fullon_ak_invalid@chars!",  # Invalid characters
         ]
 
         for invalid_key in invalid_keys:

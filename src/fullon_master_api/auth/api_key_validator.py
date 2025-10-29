@@ -23,7 +23,7 @@ class ApiKeyValidator:
         Validate API key and return associated User ORM instance.
 
         Steps:
-        1. Validate key format (must start with "fullon_ak_" prefix)
+        1. Validate key format (minimum length check)
         2. Query database using db.api_keys.get_by_key(key)
         3. Check is_active flag
         4. Check expiration (expires_at > now or null)
@@ -109,14 +109,7 @@ class ApiKeyValidator:
         Returns:
             True if format is valid, False otherwise
         """
-        if not key.startswith("fullon_ak_"):
-            logger.warning(
-                "API key missing required prefix",
-                key_prefix=key[:10]
-            )
-            return False
-
-        if len(key) < 20:  # Minimum: prefix (10) + token (10+)
+        if len(key) < 10:  # Minimum token length
             logger.warning(
                 "API key too short",
                 length=len(key)

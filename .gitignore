@@ -77,3 +77,6 @@ dmypy.json
 # Documentation builds
 docs/_build/
 site/
+
+# API keys (examples)
+examples/.beta1_api_key

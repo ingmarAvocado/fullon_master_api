@@ -2,12 +2,11 @@
 Unit tests for ApiKeyValidator.
 
 Tests ApiKeyValidator.validate_key() method with various scenarios:
-- Valid API key
+- Valid API key (with and without prefix)
 - Key not found
 - Inactive key
 - Expired key
-- Invalid format
-- Missing prefix
+- Invalid format (too short)
 """
 
 import pytest
@@ -75,19 +74,19 @@ class TestApiKeyValidator:
             mock_db_context.users.get_by_id.assert_called_once_with(mock_api_key.uid)
             mock_db_context.api_keys.update_last_used.assert_not_called()  # Should not update if user not found
 
-    def test_validate_key_invalid_format_missing_prefix(self, validator):
-        """Test validation with invalid format (missing prefix)."""
-        result = validator._validate_format("invalid_key_without_prefix")
-        assert result is False
-
     def test_validate_key_invalid_format_too_short(self, validator):
         """Test validation with invalid format (too short)."""
-        result = validator._validate_format("fullon_ak_")
+        result = validator._validate_format("short")
         assert result is False
 
-    def test_validate_key_valid_format(self, validator):
-        """Test validation with valid format."""
+    def test_validate_key_valid_format_with_prefix(self, validator):
+        """Test validation with valid format (with prefix)."""
         result = validator._validate_format("fullon_ak_valid_key_123456789")
+        assert result is True
+
+    def test_validate_key_valid_format_without_prefix(self, validator):
+        """Test validation with valid format (without prefix)."""
+        result = validator._validate_format("valid_key_without_prefix_12345")
         assert result is True
 
     @pytest.mark.asyncio

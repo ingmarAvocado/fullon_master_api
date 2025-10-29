@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Demo Data Beta1 - Hyperliquid Only Setup
+Demo Data Beta1 - Bitmex Only Setup
 
-Creates test database with minimal Hyperliquid data:
+Creates test database with minimal Bitmex data:
 - Test user for authentication (admin@fullon)
-- Hyperliquid exchange only
-- BTC/USDC:USDC symbol
+- Bitmex exchange only
+- BTC/USD:BTC symbol
 - OHLCV TimescaleDB tables (no sample candles)
 
 Used by example_beta1.py with fixed database names:
@@ -23,6 +23,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from pathlib import Path
 
 import redis
 from fullon_log import get_component_logger
@@ -326,13 +327,14 @@ async def clear_fullon_cache():
 
 
 async def install_demo_data():
-    """Install demo data - Hyperliquid only"""
-    print_header("INSTALLING HYPERLIQUID DEMO DATA")
-    fullon_logger.info("Starting demo data installation (Hyperliquid only)")
+    """Install demo data - Bitmex only"""
+    print_header("INSTALLING BITMEX DEMO DATA")
+    fullon_logger.info("Starting demo data installation (Bitmex only)")
 
     # Clear cache before starting transaction (outside transaction context)
     await clear_fullon_cache()
 
+    api_key = None  # Store API key to return
     try:
         # Use multiple transactions with commits like ticker service (working pattern)
         async with DatabaseContext() as db:
@@ -346,20 +348,29 @@ async def install_demo_data():
             await db.commit()
             print_success(f"Admin user created successfully with UID: {uid}")
 
-            # Install Hyperliquid exchange only
-            ex_id, cat_ex_id = await install_hyperliquid_exchange_internal(db, uid=uid)
+            # Create API key for admin user
+            api_key = await create_admin_api_key(db, uid)
+            if not api_key:
+                print_error("Could not create API key")
+                await db.rollback()
+                return False
+            await db.commit()
+            print_success(f"API key created successfully")
+
+            # Install Bitmex exchange only
+            ex_id, cat_ex_id = await install_bitmex_exchange_internal(db, uid=uid)
             if not ex_id or not cat_ex_id:
-                print_error("Could not install Hyperliquid exchange")
+                print_error("Could not install Bitmex exchange")
                 await db.rollback()
                 return False
             # Commit exchange creation before proceeding
             await db.commit()
-            print_success("Hyperliquid exchange created successfully")
+            print_success("Bitmex exchange created successfully")
 
-            # Install Hyperliquid symbols
-            await install_hyperliquid_symbols_internal(db, cat_ex_id=cat_ex_id)
+            # Install Bitmex symbols
+            await install_bitmex_symbols_internal(db, cat_ex_id=cat_ex_id)
             await db.commit()
-            print_success("Hyperliquid symbols installed successfully")
+            print_success("Bitmex symbols installed successfully")
 
             # Initialize OHLCV symbol tables (no sample data)
             await init_ohlcv_symbol_tables()
@@ -367,6 +378,16 @@ async def install_demo_data():
 
             print_success("Demo data installation complete!")
             fullon_logger.info("Demo data installation completed successfully")
+
+            # Save API key to environment file for client to use
+            if api_key:
+                api_key_file = Path(__file__).parent / ".beta1_api_key"
+                try:
+                    api_key_file.write_text(api_key)
+                    print_success(f"API key saved to {api_key_file}")
+                except Exception as e:
+                    print_warning(f"Could not save API key to file: {e}")
+
             return True
 
     except Exception as e:
@@ -421,14 +442,48 @@ async def install_admin_user_internal(db: DatabaseContext) -> int | None:
         return None
 
 
-async def install_hyperliquid_exchange_internal(
+async def create_admin_api_key(db: DatabaseContext, uid: int) -> str | None:
+    """Create API key for admin user using fullon_orm."""
+    print_info("Creating API key for admin user...")
+
+    try:
+        import secrets
+        from fullon_orm.models.api_key import ApiKey
+
+        # Generate secure API key
+        api_key_value = secrets.token_urlsafe(32)
+
+        # Create ApiKey model
+        api_key = ApiKey(
+            uid=uid,
+            key=api_key_value,
+            name="Beta1 Admin Key",
+            description="API key for beta1 example client",
+            scopes="read,write,admin",
+            is_active=True,
+            expires_at=None  # No expiration
+        )
+
+        # Add to database
+        created_key = await db.api_keys.add(api_key)
+        print_success(f"API key created: {api_key_value[:20]}...")
+        return created_key.key
+
+    except Exception as e:
+        print_error(f"Failed to create API key: {e}")
+        import traceback
+        print_error(traceback.format_exc())
+        return None
+
+
+async def install_bitmex_exchange_internal(
     db: DatabaseContext, uid: int
 ) -> tuple[int | None, int | None]:
-    """Install Hyperliquid exchange only."""
-    print_info("Installing Hyperliquid exchange...")
+    """Install Bitmex exchange only."""
+    print_info("Installing Bitmex exchange...")
 
-    exchange_name = "hyperliquid"
-    user_exchange_name = "hyperliquid1"
+    exchange_name = "bitmex"
+    user_exchange_name = "bitmex1"
 
     # Use repository method to get existing cat_exchanges
     cat_exchanges = await db.exchanges.get_cat_exchanges(all=True)
@@ -472,9 +527,9 @@ async def install_hyperliquid_exchange_internal(
         return (ex_id, cat_ex_id)
 
 
-async def install_hyperliquid_symbols_internal(db: DatabaseContext, cat_ex_id: int):
-    """Install Hyperliquid symbols only."""
-    print_info("Installing Hyperliquid symbols...")
+async def install_bitmex_symbols_internal(db: DatabaseContext, cat_ex_id: int):
+    """Install Bitmex symbols only."""
+    print_info("Installing Bitmex symbols...")
 
     # Clear cache before symbol installation
     try:
@@ -486,15 +541,15 @@ async def install_hyperliquid_symbols_internal(db: DatabaseContext, cat_ex_id: i
     except Exception as cache_error:
         print_warning(f"Could not clear cache (continuing anyway): {cache_error}")
 
-    # Define Hyperliquid symbols
+    # Define Bitmex symbols (from demo_data.py)
     symbols_data = [
         {
-            "symbol": "BTC/USDC:USDC",
+            "symbol": "BTC/USD:BTC",
             "updateframe": "1h",
-            "backtest": 3,
+            "backtest": 100,
             "decimals": 6,
             "base": "BTC",
-            "quote": "USDC",
+            "quote": "USD",
             "futures": True,
         }
     ]
@@ -545,11 +600,11 @@ async def install_hyperliquid_symbols_internal(db: DatabaseContext, cat_ex_id: i
 
 async def init_ohlcv_symbol_tables():
     """
-    Initialize OHLCV symbol tables for Hyperliquid (no sample data).
+    Initialize OHLCV symbol tables for Bitmex (no sample data).
 
     Creates TimescaleDB tables but does NOT insert any candles/trades.
     """
-    print_info("Initializing OHLCV symbol tables for Hyperliquid...")
+    print_info("Initializing OHLCV symbol tables for Bitmex...")
 
     try:
         from fullon_ohlcv.repositories.ohlcv import CandleRepository
@@ -563,10 +618,10 @@ async def init_ohlcv_symbol_tables():
         os.environ["DB_NAME"] = ohlcv_db_name
 
         # Initialize CandleRepository
-        print_info("  Initializing CandleRepository for hyperliquid/BTC/USDC:USDC...")
+        print_info("  Initializing CandleRepository for bitmex/BTC/USD:BTC...")
         repo = CandleRepository(
-            exchange="hyperliquid",
-            symbol="BTC/USDC:USDC",
+            exchange="bitmex",
+            symbol="BTC/USD:BTC",
             test=False,  # Uses DB_NAME from environment
         )
         await repo.initialize()
@@ -579,9 +634,9 @@ async def init_ohlcv_symbol_tables():
             raise Exception("init_symbol() failed - check TimescaleDB extension")
 
         print_success("  ✅ Created TimescaleDB tables:")
-        print_info("     - hyperliquid.btc_usdc_usdc_trades (hypertable)")
-        print_info("     - hyperliquid.btc_usdc_usdc_candles1m (hypertable)")
-        print_info("     - hyperliquid.btc_usdc_usdc_candles1m_view (continuous aggregate)")
+        print_info("     - bitmex.btc_usd_btc_trades (hypertable)")
+        print_info("     - bitmex.btc_usd_btc_candles1m (hypertable)")
+        print_info("     - bitmex.btc_usd_btc_candles1m_view (continuous aggregate)")
         print_info("  📝 No sample data inserted - tables are empty")
 
         await repo.close()
@@ -620,7 +675,7 @@ async def setup_demo_environment(db_name: str = "fullon_beta1"):
     test_db_name = db_name
     ohlcv_db_name = f"{test_db_name}_ohlcv"
 
-    print_header("HYPERLIQUID DEMO SETUP")
+    print_header("BITMEX DEMO SETUP")
     print_info(f"ORM Database: {test_db_name}")
     print_info(f"OHLCV Database: {ohlcv_db_name}")
 
@@ -674,7 +729,7 @@ async def cleanup_demo_environment(base_db_name: str):
 async def main():
     """Main CLI interface"""
     parser = argparse.ArgumentParser(
-        description="Demo Data Beta1 - Hyperliquid Only Setup",
+        description="Demo Data Beta1 - Bitmex Only Setup",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -683,7 +738,7 @@ async def main():
         metavar="DB_NAME",
         nargs="?",
         const="fullon_beta1",
-        help="Create test database and install Hyperliquid demo data (default: fullon_beta1)",
+        help="Create test database and install Bitmex demo data (default: fullon_beta1)",
     )
     parser.add_argument("--cleanup", metavar="DB_NAME", help="Drop specific test database (both ORM and OHLCV)")
 

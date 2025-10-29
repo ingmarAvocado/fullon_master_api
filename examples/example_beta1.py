@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example Beta1: OHLCV Collection Test with Hyperliquid Data
+Example Beta1: OHLCV Collection Test with Bitmex Data
 
 This example demonstrates end-to-end OHLCV data collection testing:
 
@@ -13,7 +13,7 @@ This example demonstrates end-to-end OHLCV data collection testing:
 7. Preserves databases for reuse across runs
 
 Database Persistence:
-- First run: Creates databases and installs Hyperliquid demo data
+- First run: Creates databases and installs Bitmex demo data
 - Subsequent runs: Uses existing databases (much faster!)
 - To reset: Manually drop databases or use demo_data_beta1.py cleanup
 """
@@ -204,13 +204,13 @@ async def poll_daily_candles(token: str, timeout_minutes: int = 2) -> bool:
         True if candles found, False if timeout
     """
     # URL format: /api/v1/ohlcv/{exchange}/{symbol}/{timeframe}
-    # Symbol must match what was created in demo_data_beta1.py: BTC/USDC:USDC
-    # Need to URL-encode the symbol (BTC/USDC:USDC -> BTC%2FUSDC%3AUSDC)
+    # Symbol must match what was created in demo_data_beta1.py: BTC/USD:BTC
+    # Need to URL-encode the symbol (BTC/USD:BTC -> BTC%2FUSD%3ABTC)
     from urllib.parse import quote
 
-    symbol = "BTC/USDC:USDC"
+    symbol = "BTC/USD:BTC"
     encoded_symbol = quote(symbol, safe="")
-    url = f"{API_BASE_URL}/api/v1/ohlcv/hyperliquid/{encoded_symbol}/1d"
+    url = f"{API_BASE_URL}/api/v1/ohlcv/bitmex/{encoded_symbol}/1d"
 
     # Add JWT token to headers
     headers = {"Authorization": f"Bearer {token}"}
@@ -249,13 +249,13 @@ async def poll_daily_candles(token: str, timeout_minutes: int = 2) -> bool:
 
 async def setup_test_environment():
     """
-    Setup test databases with Hyperliquid demo data.
+    Setup test databases with Bitmex demo data.
 
     Uses fixed database names (fullon_beta1, fullon_beta1_ohlcv).
     If databases already exist, skips creation and installation.
     """
     print("\n" + "=" * 60)
-    print("Setting up Hyperliquid test environment")
+    print("Setting up Bitmex test environment")
     print("=" * 60)
 
     # Check if databases already exist
@@ -270,7 +270,7 @@ async def setup_test_environment():
         print("   ✅ Databases already exist - skipping creation and installation")
         logger.info("Using existing databases", orm_db=test_db_orm, ohlcv_db=test_db_ohlcv)
         print("\n" + "=" * 60)
-        print("✅ Hyperliquid test environment ready!")
+        print("✅ Bitmex test environment ready!")
         print("=" * 60)
         return
 
@@ -297,14 +297,14 @@ async def setup_test_environment():
     await init_db()
     print("   ✅ Schema initialized")
 
-    # Install Hyperliquid demo data (no sample candles)
-    print("\n4. Installing Hyperliquid demo data...")
+    # Install Bitmex demo data (no sample candles)
+    print("\n4. Installing Bitmex demo data...")
     success = await install_demo_data()
     if not success:
         raise Exception("Failed to install demo data")
 
     print("\n" + "=" * 60)
-    print("✅ Hyperliquid test environment ready!")
+    print("✅ Bitmex test environment ready!")
     print("=" * 60)
 
 
@@ -314,7 +314,7 @@ async def main():
     """
     print("=" * 60)
     print("Fullon Master API - OHLCV Collection Test (Beta1)")
-    print("SELF-CONTAINED: Hyperliquid data + OHLCV collection")
+    print("SELF-CONTAINED: Bitmex data + OHLCV collection")
     print("=" * 60)
 
     server = None
