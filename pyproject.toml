@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fullon-master-api"
-version = "1.2.0"
+version = "1.2.1"
 description = "Unified API Gateway for Fullon Trading Platform"
 authors = ["Fullon Team"]
 readme = "README.md"

@@ -79,7 +79,8 @@ from fullon_orm import init_db
 # 8. Initialize logger
 logger = get_component_logger("fullon.examples.beta1.server")
 
-# 9. Get server port from environment (default: 8000)
+# 9. Get server host and port from environment
+SERVER_HOST = os.getenv("HOST", "127.0.0.1")
 SERVER_PORT = int(os.getenv("PORT", "8000"))
 
 
@@ -264,7 +265,7 @@ async def start_test_server():
 
     config = uvicorn.Config(
         app,
-        host="127.0.0.1",
+        host=SERVER_HOST,
         port=SERVER_PORT,
         log_level="info"
     )
@@ -302,7 +303,7 @@ async def wait_for_server(url: str, timeout: int = 30, interval: float = 0.5) ->
     return False
 
 
-async def start_ohlcv_service(api_key: str, base_url: str = "http://localhost:8000") -> bool:
+async def start_ohlcv_service(api_key: str, base_url: str = None) -> bool:
     """
     Start the OHLCV collection service via API.
 
@@ -313,6 +314,8 @@ async def start_ohlcv_service(api_key: str, base_url: str = "http://localhost:80
     Returns:
         True if service started successfully, False otherwise
     """
+    if base_url is None:
+        base_url = f"http://{SERVER_HOST}:{SERVER_PORT}"
     url = f"{base_url}/api/v1/services/ohlcv/start"
 
     headers = {"X-API-Key": api_key}
@@ -349,13 +352,13 @@ async def run_server_and_services():
         await setup_test_environment()
 
         # Start embedded test server
-        print(f"\n📡 Starting server on http://localhost:{SERVER_PORT}...")
+        print(f"\n📡 Starting server on http://{SERVER_HOST}:{SERVER_PORT}...")
 
         server = await start_test_server()
         server_task = asyncio.create_task(server.serve())
 
         # Wait for server to be ready (polls health endpoint)
-        if not await wait_for_server(f"http://localhost:{SERVER_PORT}", timeout=10):
+        if not await wait_for_server(f"http://{SERVER_HOST}:{SERVER_PORT}", timeout=10):
             raise RuntimeError("Server failed to start within 10 seconds")
 
         print("   ✅ Server started")
@@ -371,14 +374,14 @@ async def run_server_and_services():
 
         # Start OHLCV collection service
         print("\n📊 Starting OHLCV collection service...")
-        if not await start_ohlcv_service(api_key, base_url=f"http://localhost:{SERVER_PORT}"):
+        if not await start_ohlcv_service(api_key, base_url=f"http://{SERVER_HOST}:{SERVER_PORT}"):
             raise RuntimeError("Failed to start OHLCV service")
 
         print("\n" + "=" * 60)
         print("✅ SERVER RUNNING")
         print("=" * 60)
-        print(f"\n📡 API available at: http://localhost:{SERVER_PORT}")
-        print(f"📖 API docs at: http://localhost:{SERVER_PORT}/docs")
+        print(f"\n📡 API available at: http://{SERVER_HOST}:{SERVER_PORT}")
+        print(f"📖 API docs at: http://{SERVER_HOST}:{SERVER_PORT}/docs")
         print(f"💾 Using databases: {test_db_orm}, {test_db_ohlcv}")
         print(f"\n💡 Use example_beta1_client.py to query OHLCV data")
         print(f"🛑 Press Ctrl-C to stop the server\n")
