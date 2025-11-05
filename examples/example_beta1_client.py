@@ -50,7 +50,7 @@ from urllib.parse import quote
 # Third-party imports
 import httpx
 
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = "http://localhost:8222"
 
 
 async def check_server_running(url: str = API_BASE_URL, timeout: float = 2.0) -> bool:
@@ -117,7 +117,7 @@ async def get_ohlcv_candles(
     base_url: str = API_BASE_URL,
 ) -> list:
     """
-    Get OHLCV candles from the API using API key authentication.
+    Get OHLCV candles from the API using API key authentication via timeseries endpoint.
 
     Args:
         api_key: API key for authentication
@@ -130,12 +130,39 @@ async def get_ohlcv_candles(
     Returns:
         list: List of OHLCV candles
     """
+    from datetime import timedelta
+
     # URL encode the symbol
     encoded_symbol = quote(symbol, safe="")
-    url = f"{base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/{timeframe}"
+
+    # Use timeseries endpoint for aggregated OHLCV data
+    url = f"{base_url}/api/v1/ohlcv/timeseries/{exchange}/{encoded_symbol}/ohlcv"
+
+    # Calculate time range based on limit and timeframe
+    end_time = datetime.now()
+
+    # Parse timeframe to calculate start time
+    timeframe_map = {
+        "1m": timedelta(minutes=1),
+        "5m": timedelta(minutes=5),
+        "15m": timedelta(minutes=15),
+        "30m": timedelta(minutes=30),
+        "1h": timedelta(hours=1),
+        "4h": timedelta(hours=4),
+        "1d": timedelta(days=1),
+        "1w": timedelta(weeks=1),
+    }
+
+    interval = timeframe_map.get(timeframe, timedelta(days=1))
+    start_time = end_time - (interval * limit)
 
     headers = {"X-API-Key": api_key}
-    params = {"limit": limit}
+    params = {
+        "timeframe": timeframe,
+        "start_time": start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "end_time": end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "limit": limit
+    }
 
     async with httpx.AsyncClient() as client:
         try:
@@ -143,8 +170,10 @@ async def get_ohlcv_candles(
             response.raise_for_status()
             data = response.json()
 
-            # API returns {"success": true, "candles": [...], "count": N}
-            if isinstance(data, dict) and "candles" in data:
+            # Timeseries API returns {"ohlcv": [...], "count": N, ...}
+            if isinstance(data, dict) and "ohlcv" in data:
+                return data["ohlcv"]
+            elif isinstance(data, dict) and "candles" in data:
                 return data["candles"]
             elif isinstance(data, list):
                 # Fallback if API changes to return list directly

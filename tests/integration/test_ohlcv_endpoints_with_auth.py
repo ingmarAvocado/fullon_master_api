@@ -27,6 +27,7 @@ class TestOHLCVEndpointsAuth:
         - 401 Unauthorized without token
         """
         logger.info("Testing OHLCV endpoint authentication", endpoint="/api/v1/ohlcv/{exchange}/{symbol}")
+        # Updated path for new OHLCV router structure
         response = client.get("/api/v1/ohlcv/kraken/BTC-USDC")
 
         # Should return 401 Unauthorized
@@ -39,37 +40,37 @@ class TestOHLCVEndpointsAuth:
         assert "authorization" in detail_lower or "authenticated" in detail_lower
 
     @pytest.mark.asyncio
-    async def test_trades_endpoint_requires_auth(self, client):
+    async def test_timeseries_endpoint_requires_auth(self, client):
         """
-        Test GET /api/v1/trades/{exchange}/{symbol} requires authentication.
-
-        Expected:
-        - 401 Unauthorized without token (if endpoint exists)
-        - 404 Not Found if trades endpoint not available in this version
-        """
-        logger.info("Testing trades endpoint authentication", endpoint="/api/v1/trades/{exchange}/{symbol}")
-        response = client.get("/api/v1/trades/kraken/BTC-USDC")
-
-        # Either 401 (auth required) or 404 (endpoint not available)
-        assert response.status_code in [401, 404]
-
-        if response.status_code == 401:
-            # Response should contain error message
-            data = response.json()
-            assert "detail" in data
-            assert "authorization" in data["detail"].lower() or \
-                   "authenticated" in data["detail"].lower()
-
-    @pytest.mark.asyncio
-    async def test_ohlcv_latest_endpoint_requires_auth(self, client):
-        """
-        Test GET /api/v1/ohlcv/{exchange}/{symbol}/latest requires authentication.
+        Test GET /api/v1/ohlcv/{exchange}/{symbol}/ohlcv requires authentication.
 
         Expected:
         - 401 Unauthorized without token
         """
-        logger.info("Testing OHLCV latest endpoint authentication", endpoint="/api/v1/ohlcv/{exchange}/{symbol}/latest")
-        response = client.get("/api/v1/ohlcv/kraken/BTC-USDC/latest")
+        logger.info("Testing timeseries endpoint authentication", endpoint="/api/v1/ohlcv/{exchange}/{symbol}/ohlcv")
+        # New timeseries endpoint path
+        response = client.get("/api/v1/ohlcv/kraken/BTC-USDC/ohlcv")
+
+        # Should return 401 Unauthorized
+        assert response.status_code == 401
+
+        # Response should contain error message
+        data = response.json()
+        assert "detail" in data
+        detail_lower = data["detail"].lower()
+        assert "authorization" in detail_lower or "authenticated" in detail_lower
+
+    @pytest.mark.asyncio
+    async def test_ohlcv_candles_endpoint_requires_auth(self, client):
+        """
+        Test GET /api/v1/ohlcv/{exchange}/{symbol}/{timeframe} requires authentication.
+
+        Expected:
+        - 401 Unauthorized without token
+        """
+        logger.info("Testing OHLCV candles endpoint authentication", endpoint="/api/v1/ohlcv/{exchange}/{symbol}/{timeframe}")
+        # New candles endpoint path with timeframe
+        response = client.get("/api/v1/ohlcv/kraken/BTC-USDC/1m")
 
         # Should return 401 Unauthorized
         assert response.status_code == 401
@@ -135,32 +136,31 @@ class TestOHLCVEndpointsWithAuth:
         pytest.skip("OHLCV database mocking requires complex setup - auth tests verify authentication works")
 
     @pytest.mark.asyncio
-    async def test_get_trades_with_valid_token(self, client, auth_headers, test_user):
+    async def test_get_candles_with_valid_token(self, client, auth_headers, test_user):
         """
-        Test GET /api/v1/trades/{exchange}/{symbol} with valid JWT token.
+        Test GET /api/v1/ohlcv/{exchange}/{symbol}/{timeframe} with valid JWT token.
 
         Expected:
-        - 200 OK with trade data (if endpoint exists)
-        - Data models match expected Trade structure
-        - Skip if trades endpoint not available
+        - 200 OK with candle data (if database is set up)
+        - Data models match expected Candle structure
 
         NOTE: Currently skipped due to complex OHLCV database mocking requirements.
         """
-        logger.info("Skipping trades test - database mocking requires full OHLCV infrastructure setup", user_id=test_user.uid)
+        logger.info("Skipping candles test - database mocking requires full OHLCV infrastructure setup", user_id=test_user.uid)
         pytest.skip("OHLCV database mocking requires complex setup - auth tests verify authentication works")
 
     @pytest.mark.asyncio
-    async def test_get_ohlcv_latest_with_valid_token(self, client, auth_headers, test_user):
+    async def test_get_ohlcv_timeseries_with_valid_token(self, client, auth_headers, test_user):
         """
-        Test GET /api/v1/ohlcv/{exchange}/{symbol}/latest with valid JWT token.
+        Test GET /api/v1/ohlcv/{exchange}/{symbol}/ohlcv with valid JWT token.
 
         Expected:
-        - 200 OK with latest candle data
-        - Data model matches expected Candle structure
+        - 200 OK with timeseries data
+        - Data model matches expected structure
 
         NOTE: Currently skipped due to complex OHLCV database mocking requirements.
         """
-        logger.info("Skipping OHLCV latest test - database mocking requires full OHLCV infrastructure setup", user_id=test_user.uid)
+        logger.info("Skipping OHLCV timeseries test - database mocking requires full OHLCV infrastructure setup", user_id=test_user.uid)
         pytest.skip("OHLCV database mocking requires complex setup - auth tests verify authentication works")
 
 

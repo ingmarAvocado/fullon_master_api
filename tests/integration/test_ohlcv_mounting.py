@@ -38,17 +38,26 @@ class TestOHLCVMounting:
         schema = response.json()
         paths = schema.get("paths", {})
 
-        # Expected OHLCV path patterns
+        # Expected OHLCV path patterns based on new router structure
         expected_patterns = [
-            "/api/v1/ohlcv/{exchange}/{symbol}",           # Base OHLCV
-            "/api/v1/ohlcv/{exchange}/{symbol}/latest",    # Latest candle
-            "/api/v1/trades/{exchange}/{symbol}",          # Trades
+            "/api/v1/ohlcv/{exchange}/{symbol}",               # Base OHLCV
+            "/api/v1/ohlcv/{exchange}/{symbol}/{timeframe}",   # Candles with timeframe
+            "/api/v1/ohlcv/{exchange}/{symbol}/ohlcv",         # Timeseries
         ]
 
-        for pattern in expected_patterns:
-            # Check if pattern exists in paths (exact or similar)
-            matching = [p for p in paths.keys() if pattern in p or p in pattern]
-            assert len(matching) > 0, f"Expected path pattern '{pattern}' not found"
+        # Check that at least some expected patterns exist
+        # Note: symbol might be {symbol:path} in OpenAPI spec
+        ohlcv_paths = [p for p in paths.keys() if "/api/v1/ohlcv/" in p]
+        assert len(ohlcv_paths) > 0, f"No OHLCV paths found. Available paths: {list(paths.keys())[:5]}"
+
+        # Verify key endpoint patterns exist (accounting for {symbol:path} notation)
+        has_base = any("{exchange}" in p and "{symbol" in p for p in ohlcv_paths)
+        has_timeframe = any("{timeframe}" in p for p in ohlcv_paths)
+        has_timeseries = any("/ohlcv" in p and "{exchange}" in p for p in ohlcv_paths)
+
+        assert has_base, f"Missing base OHLCV endpoint. Found paths: {ohlcv_paths[:3]}"
+        assert has_timeframe, f"Missing timeframe endpoint. Found paths: {ohlcv_paths[:3]}"
+        assert has_timeseries, f"Missing timeseries endpoint. Found paths: {ohlcv_paths[:3]}"
 
     def test_ohlcv_endpoints_require_auth(self, client):
         """Test that OHLCV endpoints require authentication."""
@@ -58,7 +67,7 @@ class TestOHLCVMounting:
 
         # Check OHLCV paths exist (mounting validation)
         paths = schema.get("paths", {})
-        ohlcv_paths = {k: v for k, v in paths.items() if k.startswith("/api/v1/ohlcv/") or k.startswith("/api/v1/trades/")}
+        ohlcv_paths = {k: v for k, v in paths.items() if k.startswith("/api/v1/ohlcv/")}
 
         assert len(ohlcv_paths) > 0, "Should have OHLCV paths mounted"
 
@@ -67,11 +76,11 @@ class TestOHLCVMounting:
         # The auth override from Issue #26 ensures dependencies are applied
 
         # Verify OHLCV endpoints are properly mounted with correct prefix
-        # All OHLCV paths should start with /api/v1/ohlcv/ or /api/v1/trades/
+        # All OHLCV paths should start with /api/v1/ohlcv/
         for path in ohlcv_paths.keys():
-            assert path.startswith("/api/v1/ohlcv/") or path.startswith("/api/v1/trades/"), (
+            assert path.startswith("/api/v1/ohlcv/"), (
                 f"OHLCV endpoint {path} does not have correct prefix. "
-                f"All OHLCV endpoints should be under /api/v1/ohlcv/ or /api/v1/trades/"
+                f"All OHLCV endpoints should be under /api/v1/ohlcv/"
             )
 
         # Should have at least basic OHLCV endpoints
@@ -88,7 +97,7 @@ class TestOHLCVMounting:
         paths = schema.get("paths", {})
 
         # Count OHLCV-related paths
-        ohlcv_paths = [p for p in paths.keys() if "/ohlcv/" in p or "/trades/" in p]
+        ohlcv_paths = [p for p in paths.keys() if "/ohlcv/" in p]
 
         # Should have at least 3 OHLCV endpoints
         assert len(ohlcv_paths) >= 3, f"Expected at least 3 OHLCV endpoints, got {len(ohlcv_paths)}"

@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-Demo Data Beta1 - Bitmex Only Setup
+Demo Data Beta1 - Bitmex + Yahoo Multi-Exchange Setup
 
-Creates test database with minimal Bitmex data:
+Creates test database with multi-exchange demo data:
 - Test user for authentication (admin@fullon)
-- Bitmex exchange only
-- BTC/USD:BTC symbol
-- OHLCV TimescaleDB tables (no sample candles)
+- Bitmex exchange: BTC/USD:BTC, ETH/USD:BTC
+- Yahoo exchange: GOLD (Gold futures), SPX (S&P 500 index)
+- OHLCV TimescaleDB tables for all symbols (no sample candles)
+
+Note: Yahoo symbols use clean format (GOLD, SPX) which the Yahoo adapter
+      translates to Yahoo Finance API format (GC=F, ^GSPC) automatically.
 
 Used by example_beta1.py with fixed database names:
 - fullon_beta1 (ORM database)
@@ -327,9 +330,9 @@ async def clear_fullon_cache():
 
 
 async def install_demo_data():
-    """Install demo data - Bitmex only"""
-    print_header("INSTALLING BITMEX DEMO DATA")
-    fullon_logger.info("Starting demo data installation (Bitmex only)")
+    """Install demo data - Bitmex + Yahoo exchanges"""
+    print_header("INSTALLING BITMEX + YAHOO DEMO DATA")
+    fullon_logger.info("Starting demo data installation (Bitmex + Yahoo)")
 
     # Clear cache before starting transaction (outside transaction context)
     await clear_fullon_cache()
@@ -372,9 +375,24 @@ async def install_demo_data():
             await db.commit()
             print_success("Bitmex symbols installed successfully")
 
-            # Initialize OHLCV symbol tables (no sample data)
+            # Install Yahoo exchange
+            yahoo_ex_id, yahoo_cat_ex_id = await install_yahoo_exchange_internal(db, uid=uid)
+            if not yahoo_ex_id or not yahoo_cat_ex_id:
+                print_error("Could not install Yahoo exchange")
+                await db.rollback()
+                return False
+            # Commit exchange creation before proceeding
+            await db.commit()
+            print_success("Yahoo exchange created successfully")
+
+            # Install Yahoo symbols
+            await install_yahoo_symbols_internal(db, cat_ex_id=yahoo_cat_ex_id)
+            await db.commit()
+            print_success("Yahoo symbols installed successfully")
+
+            # Initialize OHLCV symbol tables for all exchanges (no sample data)
             await init_ohlcv_symbol_tables()
-            print_success("OHLCV symbol tables initialized successfully")
+            print_success("OHLCV symbol tables initialized successfully for all exchanges")
 
             print_success("Demo data installation complete!")
             fullon_logger.info("Demo data installation completed successfully")
@@ -527,6 +545,57 @@ async def install_bitmex_exchange_internal(
         return (ex_id, cat_ex_id)
 
 
+async def install_yahoo_exchange_internal(
+    db: DatabaseContext, uid: int
+) -> tuple[int | None, int | None]:
+    """Install Yahoo exchange for data-only market data."""
+    print_info("Installing Yahoo exchange...")
+
+    exchange_name = "yahoo"
+    user_exchange_name = "yahoo1"
+
+    # Use repository method to get existing cat_exchanges
+    cat_exchanges = await db.exchanges.get_cat_exchanges(all=True)
+    print_info(f"  Found {len(cat_exchanges)} existing category exchanges in database")
+
+    # Check if category exchange exists
+    cat_ex_id = None
+    for ce in cat_exchanges:
+        if ce.name == exchange_name:
+            cat_ex_id = ce.cat_ex_id
+            print_info(f"  Category exchange '{exchange_name}' already exists with ID: {cat_ex_id}")
+            break
+
+    # If no category exchange exists, create one
+    if not cat_ex_id:
+        cat_exchange = await db.exchanges.create_cat_exchange(exchange_name, "")
+        cat_ex_id = cat_exchange.cat_ex_id
+        print_info(f"  Created category exchange: {exchange_name}")
+
+    # Check if user already has this exchange
+    user_exchanges = await db.exchanges.get_user_exchanges(uid)
+    existing_exchange = None
+    for ue in user_exchanges:
+        if ue.name == user_exchange_name and ue.cat_ex_id == cat_ex_id:
+            existing_exchange = ue
+            break
+
+    if existing_exchange:
+        ex_id = existing_exchange.ex_id
+        print_info(f"  User exchange '{user_exchange_name}' already exists")
+        return (ex_id, cat_ex_id)
+    else:
+        # Create user exchange
+        exchange = Exchange(
+            uid=uid, cat_ex_id=cat_ex_id, name=user_exchange_name, test=False, active=True
+        )
+
+        created_exchange = await db.exchanges.add_user_exchange(exchange)
+        ex_id = created_exchange.ex_id
+        print_success(f"Exchange created: {user_exchange_name}")
+        return (ex_id, cat_ex_id)
+
+
 async def install_bitmex_symbols_internal(db: DatabaseContext, cat_ex_id: int):
     """Install Bitmex symbols only."""
     print_info("Installing Bitmex symbols...")
@@ -549,6 +618,15 @@ async def install_bitmex_symbols_internal(db: DatabaseContext, cat_ex_id: int):
             "backtest": 100,
             "decimals": 6,
             "base": "BTC",
+            "quote": "USD",
+            "futures": True,
+        },
+        {
+            "symbol": "ETH/USD:BTC",
+            "updateframe": "1h",
+            "backtest": 3,
+            "decimals": 6,
+            "base": "ETH",
             "quote": "USD",
             "futures": True,
         }
@@ -598,13 +676,105 @@ async def install_bitmex_symbols_internal(db: DatabaseContext, cat_ex_id: int):
         print_info("All symbols already existed")
 
 
+async def install_yahoo_symbols_internal(db: DatabaseContext, cat_ex_id: int):
+    """Install Yahoo symbols for market data (gold and SPX)."""
+    print_info("Installing Yahoo symbols...")
+
+    # Clear cache before symbol installation
+    try:
+        from fullon_orm.cache import cache_manager
+
+        cache_manager.region.invalidate()
+        cache_manager.invalidate_exchange_caches()
+        print_info("  Cache cleared before symbol installation")
+    except Exception as cache_error:
+        print_warning(f"Could not clear cache (continuing anyway): {cache_error}")
+
+    # Define Yahoo symbols (clean format - adapter translates to Yahoo API format)
+    symbols_data = [
+        {
+            "symbol": "GOLD",  # Yahoo adapter translates to GC=F (Gold futures)
+            "updateframe": "1h",
+            "backtest": 30,
+            "decimals": 2,
+            "base": "GOLD",
+            "quote": "USD",
+            "futures": True,
+        },
+        {
+            "symbol": "SPX",  # Yahoo adapter translates to ^GSPC (S&P 500 index)
+            "updateframe": "1h",
+            "backtest": 100,
+            "decimals": 2,
+            "base": "SPX",
+            "quote": "USD",
+            "futures": False,
+        }
+    ]
+
+    symbols_created = 0
+    for symbol_data in symbols_data:
+        try:
+            # Check if symbol already exists
+            existing_symbol = None
+            try:
+                existing_symbol = await db.symbols.get_by_symbol(symbol_data["symbol"], cat_ex_id=cat_ex_id)
+            except (AttributeError, Exception):
+                pass
+
+            if existing_symbol:
+                print_warning(f"  Symbol {symbol_data['symbol']} already exists")
+                continue
+
+            # Create Symbol model instance
+            symbol = Symbol(
+                symbol=symbol_data["symbol"],
+                cat_ex_id=cat_ex_id,
+                updateframe=symbol_data["updateframe"],
+                backtest=symbol_data["backtest"],
+                decimals=symbol_data["decimals"],
+                base=symbol_data["base"],
+                quote=symbol_data["quote"],
+                futures=symbol_data["futures"],
+            )
+
+            # Use repository method
+            created_symbol = await db.symbols.add_symbol(symbol)
+            if created_symbol:
+                symbols_created += 1
+                print_info(f"  Added symbol: {symbol_data['symbol']}")
+
+        except Exception as e:
+            if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
+                print_warning(f"  Symbol {symbol_data['symbol']} already exists")
+            else:
+                print_error(f"  Failed to create symbol {symbol_data['symbol']}: {e}")
+
+    if symbols_created > 0:
+        print_success(f"Symbols installed successfully ({symbols_created} new)")
+    else:
+        print_info("All symbols already existed")
+
+
 async def init_ohlcv_symbol_tables():
     """
-    Initialize OHLCV symbol tables for Bitmex (no sample data).
+    Initialize OHLCV symbol tables for all exchanges and symbols (no sample data).
 
     Creates TimescaleDB tables but does NOT insert any candles/trades.
+    Symbols: Bitmex (BTC/USD:BTC, ETH/USD:BTC), Yahoo (GOLD, SPX)
+
+    Note: Yahoo uses clean symbol format (GOLD, SPX) which are automatically
+          translated to Yahoo API format (GC=F, ^GSPC) by the adapter.
     """
-    print_info("Initializing OHLCV symbol tables for Bitmex...")
+    print_info("Initializing OHLCV symbol tables for all exchanges...")
+
+    # Define all symbols to initialize (clean format for Yahoo)
+    symbols_to_init = [
+        ("bitmex", "BTC/USD:BTC"),
+        ("bitmex", "ETH/USD:BTC"),
+        ("yahoo", "GOLD"),  # Yahoo adapter translates to GC=F
+        ("yahoo", "SPX"),   # Yahoo adapter translates to ^GSPC
+    ]
 
     try:
         from fullon_ohlcv.repositories.ohlcv import CandleRepository
@@ -617,29 +787,36 @@ async def init_ohlcv_symbol_tables():
         original_db_name = os.environ.get("DB_NAME")
         os.environ["DB_NAME"] = ohlcv_db_name
 
-        # Initialize CandleRepository
-        print_info("  Initializing CandleRepository for bitmex/BTC/USD:BTC...")
-        repo = CandleRepository(
-            exchange="bitmex",
-            symbol="BTC/USD:BTC",
-            test=False,  # Uses DB_NAME from environment
-        )
-        await repo.initialize()
-        print_success("  Repository initialized")
+        # Initialize each symbol
+        for exchange, symbol in symbols_to_init:
+            try:
+                print_info(f"  Initializing CandleRepository for {exchange}/{symbol}...")
+                repo = CandleRepository(
+                    exchange=exchange,
+                    symbol=symbol,
+                    test=False,  # Uses DB_NAME from environment
+                )
+                await repo.initialize()
+                print_success(f"    Repository initialized for {exchange}/{symbol}")
 
-        # Create symbol tables via init_symbol()
-        print_info("  Creating TimescaleDB tables via init_symbol()...")
-        success = await repo.init_symbol()
-        if not success:
-            raise Exception("init_symbol() failed - check TimescaleDB extension")
+                # Create symbol tables via init_symbol()
+                print_info(f"    Creating TimescaleDB tables via init_symbol()...")
+                success = await repo.init_symbol()
+                if not success:
+                    raise Exception(f"init_symbol() failed for {exchange}/{symbol}")
 
-        print_success("  ✅ Created TimescaleDB tables:")
-        print_info("     - bitmex.btc_usd_btc_trades (hypertable)")
-        print_info("     - bitmex.btc_usd_btc_candles1m (hypertable)")
-        print_info("     - bitmex.btc_usd_btc_candles1m_view (continuous aggregate)")
-        print_info("  📝 No sample data inserted - tables are empty")
+                # Normalize symbol name for table names
+                table_name = symbol.replace("/", "_").replace(":", "_").replace("=", "_").replace("^", "").lower()
+                print_success(f"    ✅ Created TimescaleDB tables:")
+                print_info(f"       - {exchange}.{table_name}_trades (hypertable)")
+                print_info(f"       - {exchange}.{table_name}_candles1m (hypertable)")
+                print_info(f"       - {exchange}.{table_name}_candles1m_view (continuous aggregate)")
 
-        await repo.close()
+                await repo.close()
+
+            except Exception as e:
+                print_error(f"    Failed to initialize {exchange}/{symbol}: {e}")
+                print_warning(f"    Continuing with remaining symbols...")
 
         # Restore original DB_NAME
         if original_db_name:
@@ -648,6 +825,7 @@ async def init_ohlcv_symbol_tables():
             os.environ.pop("DB_NAME", None)
 
         print_success("  OHLCV symbol tables initialized!")
+        print_info("  📝 No sample data inserted - tables are empty")
 
     except ImportError as e:
         print_error(f"Failed to import fullon_ohlcv: {e}")
@@ -666,7 +844,7 @@ async def init_ohlcv_symbol_tables():
 
 async def setup_demo_environment(db_name: str = "fullon_beta1"):
     """
-    Setup demo environment with test database and data.
+    Setup demo environment with test database and multi-exchange data.
 
     Args:
         db_name: Name for the ORM database (default: fullon_beta1)
@@ -675,7 +853,7 @@ async def setup_demo_environment(db_name: str = "fullon_beta1"):
     test_db_name = db_name
     ohlcv_db_name = f"{test_db_name}_ohlcv"
 
-    print_header("BITMEX DEMO SETUP")
+    print_header("BITMEX + YAHOO DEMO SETUP")
     print_info(f"ORM Database: {test_db_name}")
     print_info(f"OHLCV Database: {ohlcv_db_name}")
 
@@ -729,7 +907,7 @@ async def cleanup_demo_environment(base_db_name: str):
 async def main():
     """Main CLI interface"""
     parser = argparse.ArgumentParser(
-        description="Demo Data Beta1 - Bitmex Only Setup",
+        description="Demo Data Beta1 - Bitmex + Yahoo Multi-Exchange Setup",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -738,7 +916,7 @@ async def main():
         metavar="DB_NAME",
         nargs="?",
         const="fullon_beta1",
-        help="Create test database and install Bitmex demo data (default: fullon_beta1)",
+        help="Create test database and install Bitmex + Yahoo demo data (default: fullon_beta1)",
     )
     parser.add_argument("--cleanup", metavar="DB_NAME", help="Drop specific test database (both ORM and OHLCV)")
 

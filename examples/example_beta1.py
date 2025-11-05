@@ -210,6 +210,7 @@ async def poll_daily_candles(token: str, timeout_minutes: int = 2) -> bool:
 
     symbol = "BTC/USD:BTC"
     encoded_symbol = quote(symbol, safe="")
+    # Using the new candles endpoint with timeframe in path
     url = f"{API_BASE_URL}/api/v1/ohlcv/bitmex/{encoded_symbol}/1d"
 
     # Add JWT token to headers

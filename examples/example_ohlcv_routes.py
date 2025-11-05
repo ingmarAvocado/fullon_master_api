@@ -20,8 +20,9 @@ Demonstrates:
 - Time range queries
 
 Available Endpoints (mounted in fullon_master_api):
-- GET /api/v1/ohlcv/{exchange}/{symbol}        - Get OHLCV data
-- GET /api/v1/ohlcv/{exchange}/{symbol}/latest - Get latest candle
+- GET /api/v1/ohlcv/{exchange}/{symbol}           - Get OHLCV data (basic)
+- GET /api/v1/ohlcv/{exchange}/{symbol}/{timeframe} - Get OHLCV candles for specific timeframe
+- GET /api/v1/ohlcv/{exchange}/{symbol}/ohlcv     - Get timeseries OHLCV data
 
 Note: All endpoints require JWT authentication via Bearer token.
 """
@@ -180,7 +181,7 @@ class OHLCVAPIClient:
         Returns:
             List of OHLCV arrays: [[timestamp, open, high, low, close, volume], ...]
         """
-        # Use the mounted endpoint path with timeframe in the path
+        # Use the new candles endpoint path with timeframe in the path
         # URL-encode symbol to handle slashes (e.g., BTC/USDC -> BTC%2FUSDC)
         encoded_symbol = quote(symbol, safe="")
         url = f"{self.base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/{timeframe}"
@@ -218,7 +219,7 @@ class OHLCVAPIClient:
                 print(f"   DEBUG: Response: {e.response.text[:500]}")
                 return None
 
-    async def get_trades(
+    async def get_basic_ohlcv(
         self,
         exchange: str,
         symbol: str,
@@ -226,18 +227,16 @@ class OHLCVAPIClient:
         start_time: Optional[datetime] = None,
     ) -> Optional[List[Dict[str, Any]]]:
         """
-        Get raw trade data.
-
-        Note: This endpoint may not be available in all versions of fullon_ohlcv_api.
+        Get basic OHLCV data from the base endpoint.
 
         Args:
             exchange: Exchange name
             symbol: Trading pair
-            limit: Maximum number of trades
+            limit: Maximum number of candles
             start_time: Start datetime (UTC)
 
         Returns:
-            List of trade objects, or None if endpoint not available
+            List of OHLCV data, or None if endpoint not available
         """
         # URL-encode symbol to handle slashes
         encoded_symbol = quote(symbol, safe="")
@@ -253,7 +252,7 @@ class OHLCVAPIClient:
                 response.raise_for_status()
                 data = response.json()
                 logger.info(
-                    "Trade data retrieved",
+                    "Basic OHLCV data retrieved",
                     exchange=exchange,
                     symbol=symbol,
                     count=len(data) if data else 0,
@@ -262,24 +261,24 @@ class OHLCVAPIClient:
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
                     logger.warning(
-                        "Trades endpoint not available",
+                        "Basic OHLCV endpoint not available",
                         exchange=exchange,
                         symbol=symbol,
                     )
                 else:
                     logger.error(
-                        "Get trades failed",
+                        "Get basic OHLCV failed",
                         status=e.response.status_code,
                         exchange=exchange,
                         symbol=symbol,
                     )
                 return None
 
-    async def get_latest_ohlcv(
+    async def get_timeseries_ohlcv(
         self, exchange: str, symbol: str, timeframe: str = "1m"
     ) -> Optional[Dict[str, Any]]:
         """
-        Get latest OHLCV candle.
+        Get timeseries OHLCV data.
 
         Args:
             exchange: Exchange name
@@ -287,11 +286,11 @@ class OHLCVAPIClient:
             timeframe: Candle timeframe
 
         Returns:
-            Latest OHLCV candle data as dict
+            Timeseries OHLCV data as dict
         """
         # URL-encode symbol to handle slashes
         encoded_symbol = quote(symbol, safe="")
-        url = f"{self.base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/latest"
+        url = f"{self.base_url}/api/v1/ohlcv/{exchange}/{encoded_symbol}/ohlcv"
 
         params = {"timeframe": timeframe}
 
@@ -301,7 +300,7 @@ class OHLCVAPIClient:
                 response.raise_for_status()
                 data = response.json()
                 logger.info(
-                    "Latest OHLCV retrieved",
+                    "Timeseries OHLCV retrieved",
                     exchange=exchange,
                     symbol=symbol,
                     timeframe=timeframe,
@@ -309,7 +308,7 @@ class OHLCVAPIClient:
                 return data
             except httpx.HTTPStatusError as e:
                 logger.error(
-                    "Get latest OHLCV failed",
+                    "Get timeseries OHLCV failed",
                     status=e.response.status_code,
                     exchange=exchange,
                     symbol=symbol,
@@ -366,11 +365,11 @@ async def run_ohlcv_examples():
     print("📊 Using demo user (user_id=1) with read/write scopes")
 
     try:
-        # Example 1: Basic OHLCV data
+        # Example 1: Basic OHLCV data with timeframe
         await example_ohlcv_data()
 
-        # Example 2: Trade data (may not be available)
-        await example_trade_data()
+        # Example 2: Basic OHLCV endpoint (no timeframe)
+        await example_basic_ohlcv()
 
         # Example 3: Time-range queries
         await example_time_range_query()
@@ -440,10 +439,10 @@ async def example_ohlcv_data():
         print("   ❌ Failed to retrieve 1h OHLCV data (may be due to missing database)")
 
 
-async def example_trade_data():
-    """Demonstrate trade data retrieval (if available)."""
+async def example_basic_ohlcv():
+    """Demonstrate basic OHLCV data retrieval."""
     print("\n" + "=" * 60)
-    print("Example: Raw Trade Data Retrieval")
+    print("Example: Basic OHLCV Data Retrieval")
     print("=" * 60)
 
     # Create client with JWT token
@@ -451,21 +450,22 @@ async def example_trade_data():
     token = client.create_demo_token(user_id=1)
     client.token = token
 
-    print("\n1️⃣  Fetching recent trades for BTC/USDC (Hyperliquid)...")
-    trades = await client.get_trades(exchange="hyperliquid", symbol="BTC/USDC", limit=10)
+    print("\n1️⃣  Fetching basic OHLCV for BTC/USDC (Hyperliquid)...")
+    ohlcv = await client.get_basic_ohlcv(exchange="hyperliquid", symbol="BTC/USDC", limit=10)
 
-    if trades:
-        print(f"   ✅ Retrieved {len(trades)} trades")
-        print("   Most recent trade:")
-        recent = trades[-1] if trades else None
-        if recent:
-            print(f"      Time:   {recent.get('timestamp', 'N/A')}")
-            print(f"      Price:  ${recent.get('price', 0):,.2f}")
-            print(f"      Volume: {recent.get('volume', 0):,.6f}")
-            print(f"      Side:   {recent.get('side', 'N/A')}")
+    if ohlcv:
+        print(f"   ✅ Retrieved {len(ohlcv) if isinstance(ohlcv, list) else 'some'} OHLCV entries")
+        if isinstance(ohlcv, list) and len(ohlcv) > 0:
+            recent = ohlcv[-1]
+            print("   Most recent entry:")
+            if isinstance(recent, dict):
+                print(f"      Time:   {recent.get('timestamp', 'N/A')}")
+                print(f"      Open:   ${recent.get('open', 0):,.2f}")
+                print(f"      Close:  ${recent.get('close', 0):,.2f}")
+                print(f"      Volume: {recent.get('volume', 0):,.6f}")
     else:
         print(
-            "   ❌ Trade data not available "
+            "   ❌ Basic OHLCV data not available "
             "(endpoint may not be implemented or database not set up)"
         )
 
