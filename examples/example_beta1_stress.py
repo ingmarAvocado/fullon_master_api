@@ -457,9 +457,13 @@ Examples:
     # Check if wrk is installed
     print("\n🔍 Checking if wrk is installed...")
     try:
-        subprocess.run(["wrk", "--version"], capture_output=True, check=True)
-        print("   ✅ wrk is installed")
-    except (subprocess.CalledProcessError, FileNotFoundError):
+        # wrk --version returns exit code 1, so just check if command exists
+        result = subprocess.run(["wrk", "--version"], capture_output=True)
+        if "wrk" in result.stdout.decode() or "wrk" in result.stderr.decode():
+            print("   ✅ wrk is installed")
+        else:
+            raise FileNotFoundError("wrk not found")
+    except FileNotFoundError:
         print("❌ wrk is not installed")
         print("\n💡 Install wrk:")
         print("   sudo pacman -S wrk  # Arch Linux")
