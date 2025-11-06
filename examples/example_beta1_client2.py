@@ -51,7 +51,7 @@ from urllib.parse import quote
 import httpx
 
 # Hardcoded API key as global variable
-HARDCODED_API_KEY = "l7oFEnPvimQinTzH_r3NpZsGhot_kDn4gqjrrIlz1G8"
+HARDCODED_API_KEY = "EqHN77OSw13Q0gko3COYerlH3TplkEU2YKWg7i0Y9kE"
 
 API_BASE_URL = "https://feed.persea.ai"
 
@@ -250,29 +250,32 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Get daily candles (default)
+  # Get daily candles for all symbols (default)
   %(prog)s
 
-  # Get 1-hour candles
+  # Get 1-hour candles for all symbols
   %(prog)s --timeframe 1h
 
   # Get 5-minute candles, limit to 20
   %(prog)s --timeframe 5m --limit 20
 
-  # Query different symbol
-  %(prog)s --symbol ETH/USDC:USDC --timeframe 1d
+  # Query specific symbol only
+  %(prog)s --symbol BTC/USD:BTC --exchange bitmex --timeframe 1d
+
+  # Query all symbols
+  %(prog)s --all
         """,
     )
 
     parser.add_argument(
         "--exchange",
-        default="bitmex",
-        help="Exchange name (default: bitmex)",
+        default=None,
+        help="Exchange name (e.g., bitmex, yahoo). If not specified, queries all exchanges",
     )
     parser.add_argument(
         "--symbol",
-        default="BTC/USD:BTC",
-        help="Trading pair symbol (default: BTC/USD:BTC)",
+        default=None,
+        help="Trading pair symbol (e.g., BTC/USD:BTC, GOLD). If not specified, queries all symbols",
     )
     parser.add_argument(
         "--timeframe",
@@ -282,13 +285,18 @@ Examples:
     parser.add_argument(
         "--limit",
         type=int,
-        default=100,
-        help="Maximum number of candles to retrieve (default: 100)",
+        default=10,
+        help="Maximum number of candles to retrieve per symbol (default: 10)",
     )
     parser.add_argument(
         "--api-key",
         dest="api_key",
         help="API key for authentication (default: read from .beta1_api_key file or FULLON_API_KEY env var)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Query all available symbols (bitmex: BTC, ETH; yahoo: GOLD, SPX)",
     )
 
     args = parser.parse_args()
@@ -323,25 +331,55 @@ Examples:
 
     print("   ✅ Server is running")
 
-    # Get OHLCV candles
-    print(f"\n📊 Fetching {args.timeframe} candles for {args.symbol} ({args.exchange})...")
-    candles = await get_ohlcv_candles(
-        api_key=api_key,
-        exchange=args.exchange,
-        symbol=args.symbol,
-        timeframe=args.timeframe,
-        limit=args.limit,
-    )
+    # Define all symbols to query (if --all or no specific exchange/symbol)
+    symbols_to_query = []
 
-    # Display results
-    display_candles(candles, args.symbol, args.timeframe)
-
-    if candles:
-        print("✅ Query completed successfully")
+    if args.all or (not args.exchange and not args.symbol):
+        # Query all 4 symbols
+        symbols_to_query = [
+            ("bitmex", "BTC/USD:BTC"),
+            ("bitmex", "ETH/USD:BTC"),
+            ("yahoo", "GOLD"),
+            ("yahoo", "SPX"),
+        ]
+        print(f"\n📊 Fetching {args.timeframe} candles for ALL symbols...")
+    elif args.exchange and args.symbol:
+        # Query specific symbol
+        symbols_to_query = [(args.exchange, args.symbol)]
+        print(f"\n📊 Fetching {args.timeframe} candles for {args.symbol} ({args.exchange})...")
     else:
-        print("⚠️  No data available (collection may still be in progress)")
-        print("   Try again in a few moments or check server logs")
+        print("❌ Error: Must specify both --exchange and --symbol, or use --all")
+        sys.exit(1)
 
+    # Fetch and display candles for each symbol
+    all_successful = True
+    for exchange, symbol in symbols_to_query:
+        print(f"\n{'=' * 100}")
+        print(f"Querying: {exchange.upper()} - {symbol}")
+        print(f"{'=' * 100}")
+
+        candles = await get_ohlcv_candles(
+            api_key=api_key,
+            exchange=exchange,
+            symbol=symbol,
+            timeframe=args.timeframe,
+            limit=args.limit,
+        )
+
+        # Display results
+        display_candles(candles, symbol, args.timeframe)
+
+        if not candles:
+            all_successful = False
+            print("⚠️  No data available (collection may still be in progress)")
+            print("   Try again in a few moments or check server logs")
+
+    print("\n" + "=" * 60)
+    if all_successful:
+        print("✅ All queries completed successfully")
+    else:
+        print("⚠️  Some queries returned no data")
+        print("   Data collection may still be in progress")
     print("=" * 60)
 
 

@@ -614,8 +614,8 @@ async def install_bitmex_symbols_internal(db: DatabaseContext, cat_ex_id: int):
     symbols_data = [
         {
             "symbol": "BTC/USD:BTC",
-            "updateframe": "1h",
-            "backtest": 100,
+            "updateframe": "1m",
+            "backtest": 120,
             "decimals": 6,
             "base": "BTC",
             "quote": "USD",
@@ -623,8 +623,8 @@ async def install_bitmex_symbols_internal(db: DatabaseContext, cat_ex_id: int):
         },
         {
             "symbol": "ETH/USD:BTC",
-            "updateframe": "1h",
-            "backtest": 3,
+            "updateframe": "1m",
+            "backtest": 120,
             "decimals": 6,
             "base": "ETH",
             "quote": "USD",
@@ -694,8 +694,8 @@ async def install_yahoo_symbols_internal(db: DatabaseContext, cat_ex_id: int):
     symbols_data = [
         {
             "symbol": "GOLD",  # Yahoo adapter translates to GC=F (Gold futures)
-            "updateframe": "1h",
-            "backtest": 30,
+            "updateframe": "1d",
+            "backtest": 100,
             "decimals": 2,
             "base": "GOLD",
             "quote": "USD",
@@ -703,7 +703,7 @@ async def install_yahoo_symbols_internal(db: DatabaseContext, cat_ex_id: int):
         },
         {
             "symbol": "SPX",  # Yahoo adapter translates to ^GSPC (S&P 500 index)
-            "updateframe": "1h",
+            "updateframe": "1d",
             "backtest": 100,
             "decimals": 2,
             "base": "SPX",
