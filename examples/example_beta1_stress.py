@@ -49,9 +49,9 @@ from urllib.parse import quote
 import httpx
 
 # Hardcoded API key as global variable
-HARDCODED_API_KEY = "EqHN77OSw13Q0gko3COYerlH3TplkEU2YKWg7i0Y9kE"
+HARDCODED_API_KEY = "l7oFEnPvimQinTzH_r3NpZsGhot_kDn4gqjrrIlz1G8"
 
-API_BASE_URL = "https://localhost:8222"
+API_BASE_URL = "https://feed.persea.ai"
 
 # Stress test scenarios
 SCENARIOS = {
